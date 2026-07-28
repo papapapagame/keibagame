@@ -788,9 +788,9 @@ ol {
   white-space: nowrap;
 }
 
-/* ===== Race（縦画面・下→上） ===== */
+/* ===== Race（左→右 / 先頭追従カメラ） ===== */
 #screen-race {
-  background: linear-gradient(180deg, #152033, #1a2a20);
+  background: linear-gradient(180deg, #1a2740 0%, #152033 40%, #1a2a20 100%);
   gap: 4px;
 }
 
@@ -821,94 +821,191 @@ ol {
   border: 2px solid var(--rail);
   border-radius: 10px;
   overflow: hidden;
+  background: #1e3d2a;
+}
+
+.track-sky {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 28%;
+  background: linear-gradient(180deg, #5b87b8 0%, #7eb0d4 55%, rgba(126, 176, 212, 0) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lane-rail {
+  position: absolute;
+  left: 0;
+  top: 28%;
+  bottom: 0;
+  width: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), transparent);
+}
+
+.lane-rail-num {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.track-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.track-world {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.track-bg {
+  position: absolute;
+  inset: 0;
   background:
     repeating-linear-gradient(
-      180deg,
+      90deg,
       transparent 0,
-      transparent 36px,
-      rgba(255, 255, 255, 0.04) 36px,
-      rgba(255, 255, 255, 0.04) 38px
+      transparent 72px,
+      rgba(255, 255, 255, 0.05) 72px,
+      rgba(255, 255, 255, 0.05) 74px
     ),
-    linear-gradient(180deg, #2f6a45, #275839);
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 160px,
+      rgba(0, 0, 0, 0.06) 160px,
+      rgba(0, 0, 0, 0.06) 162px
+    ),
+    linear-gradient(180deg, #3f7a52 0%, #2f6a45 40%, #275839 100%);
+  will-change: background-position;
 }
 
 .track-lanes {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  padding: 28% 0 0;
+  z-index: 2;
 }
 
 .lane {
   position: relative;
   flex: 1;
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.05);
+  overflow: visible;
 }
 
 .lane:nth-child(even) {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .lane:last-child {
-  border-right: none;
-}
-
-.lane-label {
-  position: absolute;
-  left: 50%;
-  top: 1.2rem;
-  transform: translateX(-50%);
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
-  font-weight: 800;
-  color: #fff;
-  z-index: 2;
-  opacity: 0.85;
+  border-bottom: none;
 }
 
 .horse-runner {
   position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 78%;
-  max-width: 2.2rem;
-  height: 1.7rem;
+  left: 0;
+  top: 50%;
+  width: 3.4rem;
+  height: 1.75rem;
+  z-index: 3;
+  will-change: transform;
+  transform: translate3d(0, -50%, 0);
+}
+
+.horse-bob {
+  width: 100%;
+  height: 100%;
+  position: relative;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: horse-gallop 0.4s ease-in-out infinite;
+}
+
+.horse-runner .horse-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.horse-runner .horse-badge {
+  display: none;
+  position: absolute;
+  inset: 0;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
   font-size: 0.7rem;
   font-weight: 800;
   color: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  z-index: 3;
-  will-change: bottom;
 }
 
-.horse-runner .runner-name {
-  display: none;
+.horse-runner.no-image .horse-badge {
+  display: flex;
+}
+
+.horse-runner.no-image .horse-bob {
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.horse-runner.no-image.num-1 .horse-bob { background: #fff; }
+.horse-runner.no-image.num-1 .horse-badge { color: #111; }
+.horse-runner.no-image.num-2 .horse-bob { background: #222; }
+.horse-runner.no-image.num-3 .horse-bob { background: #c62828; }
+.horse-runner.no-image.num-4 .horse-bob { background: #1565c0; }
+.horse-runner.no-image.num-5 .horse-bob { background: #f9a825; }
+.horse-runner.no-image.num-5 .horse-badge { color: #111; }
+.horse-runner.no-image.num-6 .horse-bob { background: #2e7d32; }
+.horse-runner.no-image.num-7 .horse-bob { background: #ef6c00; }
+.horse-runner.no-image.num-8 .horse-bob { background: #ec407a; }
+
+@keyframes horse-gallop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 .finish-line {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 6%;
-  height: 6px;
+  top: 28%;
+  bottom: 0;
+  width: 8px;
   background: repeating-linear-gradient(
-    90deg,
+    180deg,
     #fff 0 8px,
     #222 8px 16px
   );
-  opacity: 0.85;
+  opacity: 0.9;
   z-index: 1;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.25);
 }
 
 /* ===== Result ===== */

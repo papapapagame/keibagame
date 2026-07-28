@@ -1,48 +1,92 @@
 window.Keiba = window.Keiba || {};
 
 (function (K) {
-  const FINISH_RATIO = 0.92;
+  /** 仮想コース長（ワールド座標） */
+  const TRACK_LENGTH = 2400;
+  /** 先頭馬を画面左から何割の位置に置くか */
+  const CAMERA_ANCHOR = 0.38;
+  /** カメラ追従のなめらかさ */
+  const CAMERA_FOLLOW = 3.0;
 
-  function easeOutCubic(t) {
-    return 1 - Math.pow(1 - t, 3);
+  function clamp(v, a, b) {
+    return Math.max(a, Math.min(b, v));
   }
 
-  function styleCurve(style, t) {
+  function smootherstep(t) {
+    t = clamp(t, 0, 1);
+    return t * t * t * (t * (t * 6 - 15) + 10);
+  }
+
+  function cubicBezierEase(t, x1, y1, x2, y2) {
+    t = clamp(t, 0, 1);
+    let u = t;
+    for (let i = 0; i < 5; i += 1) {
+      const x = bezierX(u, x1, x2) - t;
+      const dx = bezierDX(u, x1, x2);
+      if (Math.abs(dx) < 1e-6) break;
+      u = clamp(u - x / dx, 0, 1);
+    }
+    return bezierY(u, y1, y2);
+  }
+
+  function bezierX(u, x1, x2) {
+    const c = 3 * x1;
+    const b = 3 * (x2 - x1) - c;
+    const a = 1 - c - b;
+    return ((a * u + b) * u + c) * u;
+  }
+
+  function bezierDX(u, x1, x2) {
+    const c = 3 * x1;
+    const b = 3 * (x2 - x1) - c;
+    const a = 1 - c - b;
+    return (3 * a * u + 2 * b) * u + c;
+  }
+
+  function bezierY(u, y1, y2) {
+    const c = 3 * y1;
+    const b = 3 * (y2 - y1) - c;
+    const a = 1 - c - b;
+    return ((a * u + b) * u + c) * u;
+  }
+
+  /** 脚質ペース（端点固定・連続） */
+  function styleWarp(style, u) {
     switch (style) {
       case '逃げ':
-        if (t < 0.25) return easeOutCubic(t / 0.25) * 0.38;
-        if (t < 0.7) return 0.38 + ((t - 0.25) / 0.45) * 0.4;
-        return 0.78 + ((t - 0.7) / 0.3) * 0.22;
+        return cubicBezierEase(u, 0.18, 0.42, 0.48, 0.82);
       case '先行':
-        if (t < 0.3) return (t / 0.3) * 0.32;
-        if (t < 0.75) return 0.32 + ((t - 0.3) / 0.45) * 0.45;
-        return 0.77 + ((t - 0.75) / 0.25) * 0.23;
+        return cubicBezierEase(u, 0.30, 0.34, 0.55, 0.70);
       case '差し':
-        if (t < 0.45) return (t / 0.45) * 0.28;
-        if (t < 0.75) return 0.28 + ((t - 0.45) / 0.3) * 0.32;
-        return 0.6 + easeOutCubic((t - 0.75) / 0.25) * 0.4;
+        return cubicBezierEase(u, 0.42, 0.20, 0.60, 0.88);
       case '追込':
-        if (t < 0.55) return (t / 0.55) * 0.22;
-        if (t < 0.78) return 0.22 + ((t - 0.55) / 0.23) * 0.28;
-        return 0.5 + easeOutCubic((t - 0.78) / 0.22) * 0.5;
+        return cubicBezierEase(u, 0.52, 0.10, 0.70, 0.92);
       default:
-        return t;
+        return smootherstep(u);
     }
   }
 
   function assignFinishTimes(finishOrder, duration) {
     const times = {};
-    const spread = duration * 0.18;
+    // 先頭は終盤でゴール、着差は短めにして最後まで流れを保つ
+    const firstAt = duration * 0.93;
+    const spread = duration * 0.055;
+    const n = Math.max(1, finishOrder.length - 1);
     finishOrder.forEach((id, place) => {
-      times[id] = duration * 0.88 + (place / Math.max(1, finishOrder.length - 1)) * spread;
+      times[id] = firstAt + (place / n) * spread;
     });
     return times;
   }
 
-  /**
-   * 縦画面用レース演出：下から上へゴール
-   * レーンは横並び固定
-   */
+  function worldProgress(id, elapsed, finishTimes, stylesById) {
+    const finishAt = finishTimes[id];
+    const style = stylesById[id] || '先行';
+    if (elapsed <= 0) return 0;
+    if (elapsed >= finishAt) return TRACK_LENGTH;
+    const u = elapsed / finishAt;
+    return TRACK_LENGTH * smootherstep(styleWarp(style, u));
+  }
+
   K.createRaceAnimation = function createRaceAnimation({
     trackEl,
     lanesEl,
@@ -57,66 +101,111 @@ window.Keiba = window.Keiba || {};
 
     const finishTimes = assignFinishTimes(finishOrder, duration);
     const runners = new Map();
+    const worldEl = K.$('track-world');
+    const bgEl = K.$('track-bg');
+    const finishEl = K.$('finish-line');
+    const railEl = K.$('lane-rail');
+
+    if (railEl) {
+      railEl.innerHTML = '';
+      for (let i = 1; i <= 8; i += 1) {
+        const lab = document.createElement('div');
+        lab.className = `lane-rail-num num-${i}`;
+        lab.textContent = String(i);
+        railEl.appendChild(lab);
+      }
+    }
 
     lanesEl.innerHTML = '';
     for (let i = 1; i <= 8; i += 1) {
       const lane = document.createElement('div');
       lane.className = 'lane';
 
-      const label = document.createElement('div');
-      label.className = `lane-label num-${i}`;
-      label.textContent = String(i);
-      lane.appendChild(label);
-
       const horse = K.HORSES.find((h) => h.id === i);
       const runner = document.createElement('div');
       runner.className = `horse-runner num-${i}`;
-      runner.textContent = String(i);
       runner.title = horse ? horse.name : '';
+
+      const bob = document.createElement('div');
+      bob.className = 'horse-bob';
+
+      const img = document.createElement('img');
+      img.className = 'horse-sprite';
+      img.alt = horse ? horse.name : `馬${i}`;
+      img.src = K.HORSE_IMAGE_PATH(i);
+      img.draggable = false;
+      img.addEventListener('error', () => {
+        img.remove();
+        runner.classList.add('no-image');
+      });
+
+      const badge = document.createElement('span');
+      badge.className = 'horse-badge';
+      badge.textContent = String(i);
+
+      bob.appendChild(img);
+      bob.appendChild(badge);
+      runner.appendChild(bob);
       lane.appendChild(runner);
 
       runners.set(i, runner);
       lanesEl.appendChild(lane);
     }
 
-    const trackHeight = () => trackEl.clientHeight;
-    const horseHeight = () => runners.get(1).offsetHeight || 28;
+    if (finishEl) finishEl.style.left = `${TRACK_LENGTH}px`;
+    if (worldEl) worldEl.style.width = `${TRACK_LENGTH + 480}px`;
 
     let raf = 0;
     let start = 0;
+    let lastNow = 0;
+    let cameraX = 0;
     let finished = false;
+    const lastFinishAt = Math.max(...Object.values(finishTimes));
 
-    /** 下端からの移動量（px）。大きいほど上へ */
-    function positionFromBottom(id, elapsed) {
-      const finishAt = finishTimes[id];
-      const style = stylesById[id] || '先行';
-      const maxTravel = trackHeight() * FINISH_RATIO - horseHeight();
-
-      if (elapsed >= finishAt) return maxTravel;
-
-      const t = Math.min(1, elapsed / finishAt);
-      const end = Math.max(0.0001, styleCurve(style, 1));
-      const norm = styleCurve(style, t) / end;
-      return maxTravel * Math.min(1, norm);
+    function viewWidth() {
+      return trackEl.clientWidth || 1;
     }
 
     function frame(now) {
-      if (!start) start = now;
+      if (!start) {
+        start = now;
+        lastNow = now;
+      }
+      const dt = Math.min(0.05, (now - lastNow) / 1000);
+      lastNow = now;
       const elapsed = (now - start) / 1000;
       if (timerEl) timerEl.textContent = `${elapsed.toFixed(1)}s`;
 
-      for (const [id, el] of runners) {
-        el.style.bottom = `${Math.max(0, positionFromBottom(id, elapsed))}px`;
+      let leadX = 0;
+      const positions = new Map();
+      for (const id of runners.keys()) {
+        const x = worldProgress(id, elapsed, finishTimes, stylesById);
+        positions.set(id, x);
+        if (x > leadX) leadX = x;
       }
 
-      if (elapsed >= duration * 1.02 && !finished) {
+      // 先頭到達後もゴール板が画面内に入るよう、カメラ目標を少し先へ寄せる
+      const camFocus = Math.max(leadX, Math.min(TRACK_LENGTH, leadX + 40));
+      const targetCam = Math.max(0, camFocus - viewWidth() * CAMERA_ANCHOR);
+      const follow = 1 - Math.exp(-CAMERA_FOLLOW * dt);
+      cameraX += (targetCam - cameraX) * follow;
+
+      if (worldEl) {
+        worldEl.style.transform = `translate3d(${-cameraX}px, 0, 0)`;
+      }
+      if (bgEl) {
+        bgEl.style.backgroundPosition = `${-cameraX * 0.4}px 0, ${-cameraX * 0.7}px 0`;
+      }
+
+      for (const [id, el] of runners) {
+        const x = positions.get(id);
+        el.style.transform = `translate3d(${x}px, -50%, 0)`;
+        el.style.zIndex = String(10 + Math.floor(x / 8));
+      }
+
+      if (elapsed >= lastFinishAt + 0.85 && !finished) {
         finished = true;
-        const maxTravel = trackHeight() * FINISH_RATIO - horseHeight();
-        finishOrder.forEach((id, place) => {
-          const el = runners.get(id);
-          if (el) el.style.bottom = `${maxTravel - place * 5}px`;
-        });
-        if (onComplete) onComplete();
+        if (onComplete) setTimeout(() => onComplete(), 400);
         return;
       }
       raf = requestAnimationFrame(frame);

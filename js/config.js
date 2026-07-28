@@ -68,4 +68,6 @@ Keiba.DISTANCE_KEY = {
   3200: 'apt3200',
 };
 
-Keiba.RACE_DURATION = { min: 10, max: 15 };
+Keiba.RACE_DURATION = { min: 28, max: 32 };
+/** 馬画像パス（未配置時は番号バッジ表示） */
+Keiba.HORSE_IMAGE_PATH = (id) => `img/horses/horse-${id}.png`;
