@@ -128,6 +128,6 @@ window.Keiba = window.Keiba || {};
   };
 
   K.formatFormStars = function formatFormStars(form) {
-    return '★'.repeat(form) + '☆'.repeat(5 - form);
+    return '★'.repeat(form);
   };
 })(window.Keiba);

@@ -10,6 +10,7 @@
   let oddsTable = null;
   let bets = [];
   let betType = 'quinella';
+  let oddsMode = 'win'; // 'win' | 'place'
   let formation = null;
   let raceAnim = null;
 
@@ -28,11 +29,18 @@
       setup: race.setup,
       oddsTable,
       betType,
+      oddsMode,
       popularity: race.popularity,
       formation,
       onNameClick: (horse) => K.renderAbilityModal(horse),
-      onWinOddsClick: (horse) => tryAddBets('win', [[horse.id]]),
-      onPlaceOddsClick: (horse) => tryAddBets('place', [[horse.id]]),
+      onOddsClick: (horse) => {
+        if (oddsMode === 'win') tryAddBets('win', [[horse.id]]);
+        else tryAddBets('place', [[horse.id]]);
+      },
+      onCycleOddsMode: () => {
+        oddsMode = oddsMode === 'win' ? 'place' : 'win';
+        refreshPurchaseUI();
+      },
       onFormationToggle: onFormationToggle,
       onCycleBetType: cycleBetType,
       onSelectAllColumn: (col) => {

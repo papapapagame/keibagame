@@ -297,8 +297,31 @@ ol {
 }
 
 .col-form-box {
-  width: 1.85rem;
-  padding: 0.15rem 0.05rem !important;
+  width: 1.55rem;
+  padding: 0.1rem 0.02rem !important;
+}
+
+.odds-mode-cycle {
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 800;
+  padding: 0.1rem 0;
+  border: none;
+  letter-spacing: 0.02em;
+}
+
+.odds-mode-cycle:active {
+  opacity: 0.75;
+}
+
+.col-odds {
+  width: 2.6rem;
+}
+
+.col-odds.place-mode .odds-mode-cycle {
+  color: #1565c0;
 }
 
 .entry-table thead th.col-form-box {
@@ -357,8 +380,8 @@ ol {
 }
 
 .form-cell.inline {
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.2rem;
+  height: 1.2rem;
   min-height: 0;
   max-width: none;
   aspect-ratio: auto;
@@ -369,7 +392,7 @@ ol {
   border-radius: 3px;
   border: 1.5px solid #9a7bc2;
   background: #f5f0ff;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   line-height: 1;
   color: #fff;
   padding: 0;
@@ -417,13 +440,13 @@ ol {
 
 .col-action-btn {
   width: 100%;
-  max-width: 2.6rem;
-  padding: 0.1rem 0;
+  max-width: 2.2rem;
+  padding: 0.08rem 0;
   border-radius: 3px;
   border: 1px solid #6b3fa0;
   background: #fff;
   color: #6b3fa0;
-  font-size: 0.5rem;
+  font-size: 0.48rem;
   font-weight: 800;
   line-height: 1.15;
 }
@@ -704,36 +727,35 @@ ol {
 }
 
 .col-num {
-  width: 2rem;
+  width: 1.8rem;
 }
 
 .col-name {
   width: auto;
   text-align: left !important;
-  padding-left: 0.1rem !important;
-  padding-right: 0.05rem !important;
+  padding-left: 0.15rem !important;
+  padding-right: 0.15rem !important;
 }
 
 .col-form {
-  width: 3.2rem;
+  width: 2.8rem;
   padding-left: 0 !important;
-  padding-right: 0.1rem !important;
+  padding-right: 0.05rem !important;
 }
 
-.col-odds-win,
-.col-odds-place {
-  width: 2.7rem;
+.col-odds {
+  width: 2.5rem;
 }
 
 .horse-num {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.2rem;
+  height: 1.2rem;
   border-radius: 3px;
   font-weight: 800;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: #fff;
 }
 
@@ -741,12 +763,18 @@ ol {
   width: 100%;
   text-align: left;
   font-weight: 700;
-  font-size: 0.7rem;
+  font-size: 0.62rem;
+  line-height: 1.2;
   padding: 0.02rem 0;
   color: #222;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .horse-name-btn:active {
@@ -755,8 +783,8 @@ ol {
 
 .form-stars {
   color: var(--accent);
-  letter-spacing: -0.14em;
-  font-size: 0.58rem;
+  letter-spacing: -0.16em;
+  font-size: 0.52rem;
   white-space: nowrap;
 }
 
@@ -1219,12 +1247,15 @@ ol {
   }
 
   .col-form {
-    width: 3.6rem;
+    width: 2.6rem;
   }
 
-  .col-odds-win,
-  .col-odds-place {
-    width: 3rem;
+  .col-odds {
+    width: 2.3rem;
+  }
+
+  .col-form-box {
+    width: 1.4rem;
   }
 }
 
@@ -1234,7 +1265,9 @@ ol {
   }
 
   .horse-name-btn {
-    font-size: 0.92rem;
+    font-size: 0.72rem;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .odds-btn {

@@ -75,16 +75,18 @@ window.Keiba = window.Keiba || {};
 
   /**
    * 出馬表
+   * 単勝/複勝はヘッダタップで切替表示
    */
   K.renderEntryTable = function renderEntryTable({
     setup,
     oddsTable,
     betType,
+    oddsMode,
     popularity,
     formation,
     onNameClick,
-    onWinOddsClick,
-    onPlaceOddsClick,
+    onOddsClick,
+    onCycleOddsMode,
     onFormationToggle,
     onCycleBetType,
     onSelectAllColumn,
@@ -97,8 +99,8 @@ window.Keiba = window.Keiba || {};
     const popularTop = popularity.slice(0, 3);
     const activeCols = meta.activeColumns || 3;
     const totalCols = meta.columns || 3;
+    const isWinOdds = oddsMode !== 'place';
 
-    // 券種表示を同期
     const cycleBtn = K.$('btn-cycle-bet');
     if (cycleBtn) cycleBtn.textContent = meta.label;
 
@@ -108,9 +110,20 @@ window.Keiba = window.Keiba || {};
       <th class="col-num" rowspan="2">馬番</th>
       <th class="col-name" rowspan="2">馬名</th>
       <th class="col-form" rowspan="2">調子</th>
-      <th class="col-odds-win" rowspan="2">単勝</th>
-      <th class="col-odds-place" rowspan="2">複勝</th>
     `;
+
+    const oddsTh = document.createElement('th');
+    oddsTh.className = `col-odds${isWinOdds ? '' : ' place-mode'}`;
+    oddsTh.rowSpan = 2;
+    const oddsHeadBtn = document.createElement('button');
+    oddsHeadBtn.type = 'button';
+    oddsHeadBtn.className = 'odds-mode-cycle';
+    oddsHeadBtn.textContent = isWinOdds ? '単勝' : '複勝';
+    oddsHeadBtn.title = 'タップで単勝↔複勝';
+    if (onCycleOddsMode) oddsHeadBtn.addEventListener('click', onCycleOddsMode);
+    oddsTh.appendChild(oddsHeadBtn);
+    tr1.appendChild(oddsTh);
+
     const groupTh = document.createElement('th');
     groupTh.className = 'col-form-group';
     groupTh.colSpan = totalCols;
@@ -138,8 +151,9 @@ window.Keiba = window.Keiba || {};
     for (const horse of K.HORSES) {
       const form = setup.forms[horse.id];
       const tr = document.createElement('tr');
-      const winOdds = oddsTable.win[horse.id];
-      const placeOdds = oddsTable.place[horse.id];
+      const oddsValue = isWinOdds
+        ? oddsTable.win[horse.id]
+        : oddsTable.place[horse.id];
       const isPopular = popularTop.includes(horse.id);
 
       const numTd = document.createElement('td');
@@ -161,27 +175,16 @@ window.Keiba = window.Keiba || {};
       formTd.innerHTML = `<span class="form-stars">${K.formatFormStars(form)}</span>`;
       tr.appendChild(formTd);
 
-      const winTd = document.createElement('td');
-      winTd.className = 'col-odds-win';
-      const winBtn = document.createElement('button');
-      winBtn.type = 'button';
-      winBtn.className = `odds-btn${isPopular ? ' popular' : ''}`;
-      winBtn.innerHTML = `<span class="odds-val">${winOdds.toFixed(1)}</span>`;
-      winBtn.title = '単勝を購入';
-      winBtn.addEventListener('click', () => onWinOddsClick(horse));
-      winTd.appendChild(winBtn);
-      tr.appendChild(winTd);
-
-      const placeTd = document.createElement('td');
-      placeTd.className = 'col-odds-place';
-      const placeBtn = document.createElement('button');
-      placeBtn.type = 'button';
-      placeBtn.className = 'odds-btn place';
-      placeBtn.innerHTML = `<span class="odds-val">${placeOdds.toFixed(1)}</span>`;
-      placeBtn.title = '複勝を購入';
-      placeBtn.addEventListener('click', () => onPlaceOddsClick(horse));
-      placeTd.appendChild(placeBtn);
-      tr.appendChild(placeTd);
+      const oddsTd = document.createElement('td');
+      oddsTd.className = `col-odds${isWinOdds ? '' : ' place-mode'}`;
+      const oddsBtn = document.createElement('button');
+      oddsBtn.type = 'button';
+      oddsBtn.className = `odds-btn${isWinOdds ? '' : ' place'}${isPopular && isWinOdds ? ' popular' : ''}`;
+      oddsBtn.innerHTML = `<span class="odds-val">${oddsValue.toFixed(1)}</span>`;
+      oddsBtn.title = isWinOdds ? '単勝を購入' : '複勝を購入';
+      oddsBtn.addEventListener('click', () => onOddsClick(horse));
+      oddsTd.appendChild(oddsBtn);
+      tr.appendChild(oddsTd);
 
       for (let col = 0; col < totalCols; col += 1) {
         const td = document.createElement('td');
@@ -207,12 +210,11 @@ window.Keiba = window.Keiba || {};
       body.appendChild(tr);
     }
 
-    // 各列の全選択 / クリア
     if (foot) {
       foot.innerHTML = '';
       const footTr = document.createElement('tr');
       const spacer = document.createElement('td');
-      spacer.colSpan = 5;
+      spacer.colSpan = 4;
       spacer.className = 'col-actions-spacer';
       spacer.textContent = '列操作';
       footTr.appendChild(spacer);
