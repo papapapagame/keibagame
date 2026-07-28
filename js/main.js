@@ -35,6 +35,14 @@
       onPlaceOddsClick: (horse) => tryAddBets('place', [[horse.id]]),
       onFormationToggle: onFormationToggle,
       onCycleBetType: cycleBetType,
+      onSelectAllColumn: (col) => {
+        K.selectAllFormationColumn(formation, col);
+        refreshPurchaseUI();
+      },
+      onClearColumn: (col) => {
+        K.clearFormationColumn(formation, col);
+        refreshPurchaseUI();
+      },
     });
 
     const picksList = K.expandFormation(betType, formation);

@@ -107,6 +107,18 @@ window.Keiba = window.Keiba || {};
     return formation;
   };
 
+  K.selectAllFormationColumn = function selectAllFormationColumn(formation, colIndex) {
+    if (!formation || !formation.rows[colIndex]) return formation;
+    formation.rows[colIndex] = K.HORSES.map((h) => h.id);
+    return formation;
+  };
+
+  K.clearFormationColumn = function clearFormationColumn(formation, colIndex) {
+    if (!formation || !formation.rows[colIndex]) return formation;
+    formation.rows[colIndex] = [];
+    return formation;
+  };
+
   K.isFormationChecked = function isFormationChecked(formation, colIndex, horseId) {
     if (!formation || formation.mode !== 'matrix') return false;
     return !!(formation.rows[colIndex] && formation.rows[colIndex].includes(horseId));

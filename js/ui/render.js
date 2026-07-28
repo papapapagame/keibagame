@@ -87,9 +87,12 @@ window.Keiba = window.Keiba || {};
     onPlaceOddsClick,
     onFormationToggle,
     onCycleBetType,
+    onSelectAllColumn,
+    onClearColumn,
   }) {
     const head = K.$('entry-head');
     const body = K.$('entry-body');
+    const foot = K.$('entry-foot');
     const meta = K.BET_TYPES[betType];
     const popularTop = popularity.slice(0, 3);
     const activeCols = meta.activeColumns || 3;
@@ -163,7 +166,8 @@ window.Keiba = window.Keiba || {};
       const winBtn = document.createElement('button');
       winBtn.type = 'button';
       winBtn.className = `odds-btn${isPopular ? ' popular' : ''}`;
-      winBtn.innerHTML = `<span class="odds-val">${winOdds.toFixed(1)}倍</span><span class="odds-hint">タップで投票</span>`;
+      winBtn.innerHTML = `<span class="odds-val">${winOdds.toFixed(1)}</span>`;
+      winBtn.title = '単勝を購入';
       winBtn.addEventListener('click', () => onWinOddsClick(horse));
       winTd.appendChild(winBtn);
       tr.appendChild(winTd);
@@ -173,7 +177,8 @@ window.Keiba = window.Keiba || {};
       const placeBtn = document.createElement('button');
       placeBtn.type = 'button';
       placeBtn.className = 'odds-btn place';
-      placeBtn.innerHTML = `<span class="odds-val">${placeOdds.toFixed(1)}倍</span><span class="odds-hint">タップで投票</span>`;
+      placeBtn.innerHTML = `<span class="odds-val">${placeOdds.toFixed(1)}</span>`;
+      placeBtn.title = '複勝を購入';
       placeBtn.addEventListener('click', () => onPlaceOddsClick(horse));
       placeTd.appendChild(placeBtn);
       tr.appendChild(placeTd);
@@ -200,6 +205,50 @@ window.Keiba = window.Keiba || {};
       }
 
       body.appendChild(tr);
+    }
+
+    // 各列の全選択 / クリア
+    if (foot) {
+      foot.innerHTML = '';
+      const footTr = document.createElement('tr');
+      const spacer = document.createElement('td');
+      spacer.colSpan = 5;
+      spacer.className = 'col-actions-spacer';
+      spacer.textContent = '列操作';
+      footTr.appendChild(spacer);
+
+      for (let col = 0; col < totalCols; col += 1) {
+        const disabled = col >= activeCols;
+        const td = document.createElement('td');
+        td.className = `col-form-box col-actions-cell${disabled ? ' disabled-col' : ''}`;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'col-actions';
+
+        const allBtn = document.createElement('button');
+        allBtn.type = 'button';
+        allBtn.className = 'col-action-btn';
+        allBtn.textContent = '全選択';
+        allBtn.disabled = disabled;
+        if (!disabled && onSelectAllColumn) {
+          allBtn.addEventListener('click', () => onSelectAllColumn(col));
+        }
+
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'col-action-btn clear';
+        clearBtn.textContent = 'クリア';
+        clearBtn.disabled = disabled;
+        if (!disabled && onClearColumn) {
+          clearBtn.addEventListener('click', () => onClearColumn(col));
+        }
+
+        wrap.appendChild(allBtn);
+        wrap.appendChild(clearBtn);
+        td.appendChild(wrap);
+        footTr.appendChild(td);
+      }
+      foot.appendChild(footTr);
     }
   };
 
