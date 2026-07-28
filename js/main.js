@@ -213,6 +213,7 @@
       timerEl: K.$('race-timer'),
       finishOrder: race.finishOrder,
       stylesById: race.setup.styles,
+      raceDistance: race.setup.distance,
       onComplete: showRaceResult,
     });
 

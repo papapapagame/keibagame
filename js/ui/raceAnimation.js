@@ -87,12 +87,55 @@ window.Keiba = window.Keiba || {};
     return TRACK_LENGTH * smootherstep(styleWarp(style, u));
   }
 
+  /** 残り距離看板のメートル値（ゴール手前まで） */
+  function remainingMarkerMeters(raceDistance) {
+    const step = raceDistance >= 2400 ? 400 : 200;
+    const marks = [];
+    for (let m = raceDistance - step; m >= step; m -= step) {
+      marks.push(m);
+    }
+    if (raceDistance > 200 && !marks.includes(200)) marks.push(200);
+    return marks.sort((a, b) => b - a);
+  }
+
+  function placeDistanceMarkers(container, raceDistance) {
+    if (!container) return;
+    container.innerHTML = '';
+
+    const start = document.createElement('div');
+    start.className = 'distance-board is-start';
+    start.style.left = '0px';
+    start.innerHTML =
+      '<div class="distance-board-sign">START</div><div class="distance-board-pole"></div>';
+    container.appendChild(start);
+
+    for (const meters of remainingMarkerMeters(raceDistance)) {
+      const x = TRACK_LENGTH * (1 - meters / raceDistance);
+      const board = document.createElement('div');
+      board.className = 'distance-board';
+      board.style.left = `${x}px`;
+      board.innerHTML =
+        `<div class="distance-board-sign"><span class="distance-board-label">残り</span>` +
+        `<span class="distance-board-m">${meters}</span><span class="distance-board-unit">m</span></div>` +
+        '<div class="distance-board-pole"></div>';
+      container.appendChild(board);
+    }
+
+    const goal = document.createElement('div');
+    goal.className = 'distance-board is-goal';
+    goal.style.left = `${TRACK_LENGTH}px`;
+    goal.innerHTML =
+      '<div class="distance-board-sign">GOAL</div><div class="distance-board-pole"></div>';
+    container.appendChild(goal);
+  }
+
   K.createRaceAnimation = function createRaceAnimation({
     trackEl,
     lanesEl,
     timerEl,
     finishOrder,
     stylesById,
+    raceDistance = 1600,
     onComplete,
   }) {
     const duration =
@@ -105,6 +148,9 @@ window.Keiba = window.Keiba || {};
     const bgEl = K.$('track-bg');
     const finishEl = K.$('finish-line');
     const railEl = K.$('lane-rail');
+    const markersEl = K.$('distance-markers');
+
+    placeDistanceMarkers(markersEl, raceDistance);
 
     if (railEl) {
       railEl.innerHTML = '';
