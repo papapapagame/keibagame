@@ -898,10 +898,12 @@ ol {
 
 .track-lanes {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 28%; /* height 基準（padding% は width 基準なので使わない） */
+  bottom: 0;
   display: flex;
   flex-direction: column;
-  padding: 28% 0 0;
   z-index: 2;
 }
 
