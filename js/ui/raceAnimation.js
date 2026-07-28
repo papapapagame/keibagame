@@ -50,19 +50,19 @@ window.Keiba = window.Keiba || {};
     return ((a * u + b) * u + c) * u;
   }
 
-  /** 脚質ペース（端点固定・連続） */
+  /** 脚質ペース（差は控えめ・端点固定） */
   function styleWarp(style, u) {
     switch (style) {
       case '逃げ':
-        return cubicBezierEase(u, 0.18, 0.42, 0.48, 0.82);
+        return cubicBezierEase(u, 0.28, 0.36, 0.55, 0.72);
       case '先行':
-        return cubicBezierEase(u, 0.30, 0.34, 0.55, 0.70);
+        return cubicBezierEase(u, 0.32, 0.32, 0.58, 0.68);
       case '差し':
-        return cubicBezierEase(u, 0.42, 0.20, 0.60, 0.88);
+        return cubicBezierEase(u, 0.38, 0.26, 0.62, 0.78);
       case '追込':
-        return cubicBezierEase(u, 0.52, 0.10, 0.70, 0.92);
+        return cubicBezierEase(u, 0.44, 0.20, 0.66, 0.84);
       default:
-        return smootherstep(u);
+        return u;
     }
   }
 
@@ -85,6 +85,40 @@ window.Keiba = window.Keiba || {};
     if (elapsed >= finishAt) return TRACK_LENGTH;
     const u = elapsed / finishAt;
     return TRACK_LENGTH * smootherstep(styleWarp(style, u));
+  }
+
+  /** 隊列幅を画面内に収まるよう先頭基準で圧縮 */
+  function fitPackToView(positions, maxSpan) {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    for (const x of positions.values()) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+    }
+    const span = maxX - minX;
+    if (span <= maxSpan || span < 1e-6) {
+      return { positions, minX, maxX };
+    }
+    const scale = maxSpan / span;
+    const fitted = new Map();
+    for (const [id, x] of positions) {
+      fitted.set(id, maxX - (maxX - x) * scale);
+    }
+    return { positions: fitted, minX: maxX - maxSpan, maxX };
+  }
+
+  /** 全馬が画面に入るカメラ位置（先頭寄りを優先） */
+  function packCameraTarget(minX, maxX, vw) {
+    const horseW = 54;
+    const padL = vw * 0.04 + horseW * 0.15;
+    const padR = vw * 0.1 + horseW;
+    const prefer = maxX - vw * CAMERA_ANCHOR;
+    const camMin = maxX + padR - vw;
+    const camMax = minX - padL;
+    if (camMin <= camMax) {
+      return Math.max(0, clamp(prefer, camMin, camMax));
+    }
+    return Math.max(0, minX - padL);
   }
 
   /** 残り距離看板のメートル値（ゴール手前まで） */
@@ -222,17 +256,18 @@ window.Keiba = window.Keiba || {};
       const elapsed = (now - start) / 1000;
       if (timerEl) timerEl.textContent = `${elapsed.toFixed(1)}s`;
 
-      let leadX = 0;
-      const positions = new Map();
+      const vw = viewWidth();
+      const raw = new Map();
       for (const id of runners.keys()) {
-        const x = worldProgress(id, elapsed, finishTimes, stylesById);
-        positions.set(id, x);
-        if (x > leadX) leadX = x;
+        raw.set(id, worldProgress(id, elapsed, finishTimes, stylesById));
       }
 
-      // 先頭到達後もゴール板が画面内に入るよう、カメラ目標を少し先へ寄せる
-      const camFocus = Math.max(leadX, Math.min(TRACK_LENGTH, leadX + 40));
-      const targetCam = Math.max(0, camFocus - viewWidth() * CAMERA_ANCHOR);
+      // 画面幅の約68%以内に隊列を収める（馬本体ぶんも考慮）
+      const maxSpan = Math.max(120, vw * 0.68 - 56);
+      const fitted = fitPackToView(raw, maxSpan);
+      const positions = fitted.positions;
+
+      const targetCam = packCameraTarget(fitted.minX, fitted.maxX, vw);
       const follow = 1 - Math.exp(-CAMERA_FOLLOW * dt);
       cameraX += (targetCam - cameraX) * follow;
 
