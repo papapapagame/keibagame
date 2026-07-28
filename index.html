@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>競馬ゲーム</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ① タイトル -->
+  <section id="screen-title" class="screen active">
+    <div class="title-wrap">
+      <p class="title-eyebrow">KEIBA BETTING</p>
+      <h1 class="game-title">競馬ゲーム</h1>
+      <p class="title-sub">8頭立て・馬券購入シミュレーション</p>
+      <button id="btn-start" class="btn btn-primary btn-lg" type="button">ゲームスタート</button>
+      <div id="title-stats" class="title-stats" hidden></div>
+    </div>
+  </section>
+
+  <!-- ② 馬券購入 -->
+  <section id="screen-purchase" class="screen">
+    <header class="purchase-header">
+      <div class="stat-block">
+        <span class="stat-label">所持金</span>
+        <span id="money-display" class="stat-value money">¥100,000</span>
+      </div>
+      <div class="race-info">
+        <span id="surface-display" class="pill surface">芝</span>
+        <span id="distance-display" class="pill">1600m</span>
+        <span id="condition-display" class="pill">良</span>
+        <span id="race-count-display" class="pill muted">R1</span>
+      </div>
+    </header>
+
+    <div class="entry-table-wrap" id="entry-panel">
+      <table class="entry-table" id="entry-table">
+        <thead id="entry-head"></thead>
+        <tbody id="entry-body"></tbody>
+      </table>
+    </div>
+
+    <div class="bet-switch" id="bet-switch">
+      <span class="bet-switch-label">券種の切替</span>
+      <nav id="bet-tabs" class="bet-tabs" role="tablist">
+        <button class="bet-tab active" data-type="quinella" type="button">馬連</button>
+        <button class="bet-tab" data-type="exacta" type="button">馬単</button>
+        <button class="bet-tab" data-type="trio" type="button">三連複</button>
+        <button class="bet-tab" data-type="trifecta" type="button">三連単</button>
+      </nav>
+    </div>
+
+    <footer class="purchase-footer">
+      <div class="panel-stack" id="panel-stack">
+        <!-- 現在の購入馬券 -->
+        <div class="bottom-panel panel-purchased" id="panel-purchased">
+          <div class="bottom-panel-head purchased-head">
+            <span>現在の購入馬券</span>
+            <span>合計購入金額：<strong id="total-bet">0円</strong></span>
+          </div>
+          <ul id="bet-list" class="bottom-panel-list purchased-list"></ul>
+        </div>
+
+        <!-- 選択中の組み合わせ（同位置オーバーレイ） -->
+        <div class="bottom-panel panel-selection" id="panel-selection" hidden>
+          <div class="bottom-panel-head selection-head">
+            <span id="selection-title">馬連</span>
+            <button id="btn-buy-all" class="btn-buy-all" type="button" disabled>すべて購入（0件）</button>
+          </div>
+          <ul id="combo-list" class="bottom-panel-list selection-list"></ul>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <button id="btn-cancel-bets" class="btn btn-cancel-outline" type="button">購入取消</button>
+        <button id="btn-race-start" class="btn btn-race-start" type="button">レーススタート</button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ③ レース -->
+  <section id="screen-race" class="screen">
+    <header class="race-header">
+      <span id="race-title" class="race-title">レース中</span>
+      <span id="race-timer" class="race-timer">0.0s</span>
+    </header>
+    <div id="track" class="track">
+      <div class="track-lanes" id="track-lanes"></div>
+      <div class="finish-line" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- 結果 -->
+  <section id="screen-result" class="screen">
+    <div class="result-wrap">
+      <h2 class="result-title">レース結果</h2>
+      <div class="result-columns">
+        <div class="result-left">
+          <h3 class="result-col-title">着順</h3>
+          <ol id="result-order" class="result-order"></ol>
+        </div>
+        <div class="result-right">
+          <h3 class="result-col-title">結果オッズ</h3>
+          <div id="result-odds" class="result-odds"></div>
+        </div>
+      </div>
+      <div class="payout-block">
+        <h3>払戻</h3>
+        <ul id="payout-list" class="payout-list"></ul>
+        <div class="payout-total">
+          <span>払戻合計</span>
+          <strong id="payout-total">¥0</strong>
+        </div>
+        <div class="money-after">
+          所持金 <strong id="money-after">¥0</strong>
+        </div>
+      </div>
+      <button id="btn-next-race" class="btn btn-primary btn-lg" type="button">次のレースへ</button>
+    </div>
+  </section>
+
+  <!-- 能力モーダル -->
+  <div id="ability-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close="ability"></div>
+    <div class="modal-panel ability-panel" role="dialog" aria-modal="true">
+      <header class="modal-header">
+        <h2 id="ability-horse-name">馬名</h2>
+        <button class="btn-icon" data-close="ability" type="button" aria-label="閉じる">×</button>
+      </header>
+      <div id="ability-body" class="ability-body"></div>
+      <button class="btn btn-primary" data-close="ability" type="button">閉じる</button>
+    </div>
+  </div>
+
+  <!-- 確認ダイアログ -->
+  <div id="confirm-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close="confirm"></div>
+    <div class="modal-panel confirm-panel" role="dialog" aria-modal="true">
+      <p id="confirm-message">レースを開始しますか？</p>
+      <div class="confirm-actions">
+        <button id="confirm-no" class="btn btn-ghost" type="button">いいえ</button>
+        <button id="confirm-yes" class="btn btn-primary" type="button">はい</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 券種選択用（複式の選択確認） -->
+  <div id="bet-confirm-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close="bet-confirm"></div>
+    <div class="modal-panel confirm-panel" role="dialog" aria-modal="true">
+      <p id="bet-confirm-message"></p>
+      <div class="confirm-actions">
+        <button id="bet-confirm-no" class="btn btn-ghost" type="button">キャンセル</button>
+        <button id="bet-confirm-yes" class="btn btn-primary" type="button">購入</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data/horses.js"></script>
+  <script src="js/core/storage.js"></script>
+  <script src="js/core/raceEngine.js"></script>
+  <script src="js/core/oddsEngine.js"></script>
+  <script src="js/core/formation.js"></script>
+  <script src="js/ui/raceAnimation.js"></script>
+  <script src="js/ui/render.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
