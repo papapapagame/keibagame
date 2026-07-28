@@ -34,6 +34,7 @@
       onWinOddsClick: (horse) => tryAddBets('win', [[horse.id]]),
       onPlaceOddsClick: (horse) => tryAddBets('place', [[horse.id]]),
       onFormationToggle: onFormationToggle,
+      onCycleBetType: cycleBetType,
     });
 
     const picksList = K.expandFormation(betType, formation);
@@ -58,6 +59,14 @@
     formation = K.createEmptyFormation(betType);
   }
 
+  function cycleBetType() {
+    const order = K.FORM_TAB_TYPES;
+    const idx = order.indexOf(betType);
+    betType = order[(idx + 1) % order.length];
+    resetFormation();
+    refreshPurchaseUI();
+  }
+
   function startNewRace() {
     if (state.money < UNIT()) {
       state.money = K.INITIAL_MONEY;
@@ -69,9 +78,6 @@
     const setup = K.generateRaceSetup();
     race = K.prepareRace(setup);
     oddsTable = K.buildOddsTable(race.winRates);
-    document.querySelectorAll('.bet-tab').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.type === 'quinella');
-    });
     refreshPurchaseUI();
     K.showScreen('screen-purchase');
   }
@@ -229,16 +235,7 @@
   function bindEvents() {
     K.$('btn-start').addEventListener('click', startNewRace);
 
-    document.querySelectorAll('.bet-tab').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        betType = btn.dataset.type;
-        resetFormation();
-        document.querySelectorAll('.bet-tab').forEach((b) => {
-          b.classList.toggle('active', b === btn);
-        });
-        refreshPurchaseUI();
-      });
-    });
+    K.$('btn-cycle-bet').addEventListener('click', cycleBetType);
 
     K.$('btn-cancel-bets').addEventListener('click', cancelAllBets);
     K.$('btn-race-start').addEventListener('click', requestRaceStart);

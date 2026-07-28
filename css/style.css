@@ -241,40 +241,10 @@ ol {
   font-weight: 600;
 }
 
-.bet-tabs {
-  display: flex;
-  gap: 2px;
-  flex: 1;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.bet-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.bet-tab {
-  flex: 1 0 auto;
-  min-width: 3.2rem;
-  padding: 0.35rem 0.45rem;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  border: 1px solid transparent;
-}
-
-.bet-tab.active {
-  background: #6b3fa0;
-  color: #fff;
-  border-color: #5a3490;
-}
-
 .bet-switch {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   flex-shrink: 0;
   padding: 0.25rem 0.15rem;
 }
@@ -286,11 +256,43 @@ ol {
   flex-shrink: 0;
 }
 
+.bet-cycle-btn {
+  background: #6b3fa0;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  border: none;
+  letter-spacing: 0.04em;
+}
+
+.bet-cycle-btn:active {
+  transform: scale(0.97);
+  background: #5a3490;
+}
+
+.bet-type-cycle {
+  width: 100%;
+  background: transparent;
+  color: #fff;
+  font-size: inherit;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.25rem;
+  border: none;
+}
+
+.bet-type-cycle:active {
+  opacity: 0.85;
+}
+
 .entry-table thead th.col-form-group {
   background: #6b3fa0 !important;
   color: #fff !important;
   font-weight: 800;
   letter-spacing: 0.04em;
+  padding: 0.2rem 0.15rem !important;
 }
 
 .col-form-box {

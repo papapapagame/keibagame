@@ -86,6 +86,7 @@ window.Keiba = window.Keiba || {};
     onWinOddsClick,
     onPlaceOddsClick,
     onFormationToggle,
+    onCycleBetType,
   }) {
     const head = K.$('entry-head');
     const body = K.$('entry-body');
@@ -94,22 +95,41 @@ window.Keiba = window.Keiba || {};
     const activeCols = meta.activeColumns || 3;
     const totalCols = meta.columns || 3;
 
-    head.innerHTML = `
-      <tr>
-        <th class="col-num" rowspan="2">馬番</th>
-        <th class="col-name" rowspan="2">馬名</th>
-        <th class="col-form" rowspan="2">調子</th>
-        <th class="col-odds-win" rowspan="2">単勝</th>
-        <th class="col-odds-place" rowspan="2">複勝</th>
-        <th class="col-form-group" colspan="${totalCols}">${meta.label}</th>
-      </tr>
-      <tr>
-        ${Array.from({ length: totalCols }, (_, c) => {
-          const disabled = c >= activeCols;
-          return `<th class="col-form-box${disabled ? ' disabled-col' : ''}">${K.FORM_COLUMN_LABELS[c]}</th>`;
-        }).join('')}
-      </tr>
+    // 券種表示を同期
+    const cycleBtn = K.$('btn-cycle-bet');
+    if (cycleBtn) cycleBtn.textContent = meta.label;
+
+    head.innerHTML = '';
+    const tr1 = document.createElement('tr');
+    tr1.innerHTML = `
+      <th class="col-num" rowspan="2">馬番</th>
+      <th class="col-name" rowspan="2">馬名</th>
+      <th class="col-form" rowspan="2">調子</th>
+      <th class="col-odds-win" rowspan="2">単勝</th>
+      <th class="col-odds-place" rowspan="2">複勝</th>
     `;
+    const groupTh = document.createElement('th');
+    groupTh.className = 'col-form-group';
+    groupTh.colSpan = totalCols;
+    const typeBtn = document.createElement('button');
+    typeBtn.type = 'button';
+    typeBtn.className = 'bet-type-cycle';
+    typeBtn.textContent = meta.label;
+    typeBtn.title = 'タップで券種切替';
+    if (onCycleBetType) typeBtn.addEventListener('click', onCycleBetType);
+    groupTh.appendChild(typeBtn);
+    tr1.appendChild(groupTh);
+    head.appendChild(tr1);
+
+    const tr2 = document.createElement('tr');
+    for (let c = 0; c < totalCols; c += 1) {
+      const disabled = c >= activeCols;
+      const th = document.createElement('th');
+      th.className = `col-form-box${disabled ? ' disabled-col' : ''}`;
+      th.textContent = K.FORM_COLUMN_LABELS[c];
+      tr2.appendChild(th);
+    }
+    head.appendChild(tr2);
 
     body.innerHTML = '';
     for (const horse of K.HORSES) {
