@@ -4,14 +4,12 @@ window.Keiba = window.Keiba || {};
   /** 仮想コース長（鼻先座標。ゴール線 = TRACK_LENGTH） */
   const TRACK_LENGTH = 2400;
   const RUNOUT_LENGTH = 720;
-  /** 現在先頭を画面のどこに置くか */
   const LEAD_CAMERA_ANCHOR = 0.4;
   const CAMERA_FOLLOW = 3.2;
   const FINISH_CAMERA_ANCHOR = 0.62;
-  /** 着差（秒） */
   const PLACE_GAP_SEC = 0.55;
-  /** 道中の馬間（ワールド座標） */
-  const PACK_GAP = 48;
+  /** 道中の最低速度（px/秒）。停止・後退を防ぐ */
+  const MIN_SPEED = 28;
 
   function clamp(v, a, b) {
     return Math.max(a, Math.min(b, v));
@@ -19,21 +17,6 @@ window.Keiba = window.Keiba || {};
 
   function lerp(a, b, t) {
     return a + (b - a) * t;
-  }
-
-  function easeInOut(t) {
-    t = clamp(t, 0, 1);
-    return t * t * (3 - 2 * t);
-  }
-
-  function shuffleInPlace(arr) {
-    for (let i = arr.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const tmp = arr[i];
-      arr[i] = arr[j];
-      arr[j] = tmp;
-    }
-    return arr;
   }
 
   function assignFinishTimes(finishOrder, duration) {
@@ -46,128 +29,90 @@ window.Keiba = window.Keiba || {};
   }
 
   /**
-   * 道中用のランダム順位キーフレーム。
-   * 着順とは無関係。パターン（独走気味／大荒れ／中団入れ替わり）も毎回ランダム。
+   * 各馬の道中経路（常に前進・速度の緩急のみ）。
+   * 着順とは無関係。パターンは毎回ランダム。
    */
-  function buildDramaFrames(horseIds, stretchStart) {
+  function buildForwardPaths(horseIds, stretchStart) {
     const ids = horseIds.slice();
     const patternRoll = Math.random();
     const pattern =
-      patternRoll < 0.28 ? 'holdLead' : patternRoll < 0.55 ? 'lateSurge' : 'chaos';
+      patternRoll < 0.3 ? 'holdLead' : patternRoll < 0.58 ? 'lateSurge' : 'chaos';
 
-    let stickyLead = ids[Math.floor(Math.random() * ids.length)];
-    let surgeId = ids[Math.floor(Math.random() * ids.length)];
-    if (surgeId === stickyLead && ids.length > 1) {
-      surgeId = ids[(ids.indexOf(surgeId) + 1) % ids.length];
-    }
+    const focusId = ids[Math.floor(Math.random() * ids.length)];
+    const baseSpeed = (TRACK_LENGTH * 0.82) / Math.max(1, stretchStart);
+    const paths = new Map();
 
-    const times = [0];
-    let t = 0.8 + Math.random() * 1.2;
-    while (t < stretchStart - 0.6) {
-      times.push(t);
-      t += 1.2 + Math.random() * 2.4;
-    }
-    times.push(stretchStart);
-
-    const frames = times.map((time, index) => {
-      const order = shuffleInPlace(ids.slice());
-      const phase = times.length <= 1 ? 0 : index / (times.length - 1);
-
-      if (pattern === 'holdLead') {
-        // 序盤〜中盤は同じ馬が前目、終盤キーフレームでは崩す
-        if (phase < 0.7) {
-          const rest = order.filter((id) => id !== stickyLead);
-          order.length = 0;
-          order.push(stickyLead, ...rest);
-          // 2番手付近も軽く入れ替え
-          if (rest.length > 2 && Math.random() < 0.7) {
-            const a = 1 + Math.floor(Math.random() * Math.min(3, rest.length));
-            const b = 1 + Math.floor(Math.random() * Math.min(3, rest.length));
-            const tmp = order[a];
-            order[a] = order[b];
-            order[b] = tmp;
-          }
-        }
-      } else if (pattern === 'lateSurge') {
-        if (phase < 0.45) {
-          // 終盤ごぼう抜き役を後ろ〜中団に置く
-          const rest = order.filter((id) => id !== surgeId);
-          const back = Math.min(rest.length, 4 + Math.floor(Math.random() * 3));
-          order.length = 0;
-          order.push(...rest.slice(0, back), surgeId, ...rest.slice(back));
-        } else if (phase < 0.85) {
-          const rest = order.filter((id) => id !== surgeId);
-          order.length = 0;
-          order.push(surgeId, ...shuffleInPlace(rest));
-        }
+    ids.forEach((id) => {
+      const times = [0];
+      let t = 0.7 + Math.random() * 0.9;
+      while (t < stretchStart - 0.35) {
+        times.push(t);
+        t += 0.9 + Math.random() * 1.7;
       }
-      // chaos: 完全シャッフルのまま
+      times.push(stretchStart);
 
-      const rankById = {};
-      order.forEach((id, rank) => {
-        rankById[id] = rank;
-      });
-      return { time, rankById };
+      const points = [{ t: 0, x: 0 }];
+      let x = 0;
+
+      for (let i = 1; i < times.length; i += 1) {
+        const t0 = times[i - 1];
+        const t1 = times[i];
+        const dt = Math.max(0.05, t1 - t0);
+        const phase = t1 / stretchStart;
+
+        // 基準より速い／遅いだけで前後が入れ替わる
+        let mul = 0.55 + Math.random() * 0.95;
+
+        if (pattern === 'holdLead' && id === focusId) {
+          mul *= phase < 0.75 ? 1.22 : 0.92;
+        } else if (pattern === 'holdLead' && phase < 0.55) {
+          mul *= 0.78 + Math.random() * 0.28;
+        }
+
+        if (pattern === 'lateSurge' && id === focusId) {
+          mul *= phase < 0.4 ? 0.62 : phase < 0.7 ? 1.05 : 1.4;
+        } else if (pattern === 'lateSurge' && phase > 0.55) {
+          mul *= 0.8 + Math.random() * 0.25;
+        }
+
+        if (pattern === 'chaos') {
+          mul = 0.5 + Math.random() * 1.15;
+        }
+
+        const speed = Math.max(MIN_SPEED, baseSpeed * mul);
+        x += speed * dt;
+        points.push({ t: t1, x });
+      }
+
+      // 直線手前で隊列が散らばりすぎないよう、到達位置を帯に収める（比率スケールなので単調性は維持）
+      const targetEnd = TRACK_LENGTH * (0.72 + Math.random() * 0.12);
+      const scale = targetEnd / Math.max(1, x);
+      for (let i = 1; i < points.length; i += 1) {
+        points[i].x *= scale;
+        // 念のため各区間に最低前進を保証
+        const minX = points[i - 1].x + MIN_SPEED * (points[i].t - points[i - 1].t) * 0.35;
+        if (points[i].x < minX) points[i].x = minX;
+      }
+
+      paths.set(id, points);
     });
 
-    return { frames, pattern };
+    return { paths, pattern, focusId };
   }
 
-  function dramaRank(id, elapsed, frames) {
-    if (!frames.length) return 0;
-    if (elapsed <= frames[0].time) return frames[0].rankById[id] || 0;
-    for (let i = 1; i < frames.length; i += 1) {
-      const prev = frames[i - 1];
-      const next = frames[i];
-      if (elapsed <= next.time) {
-        const t = easeInOut(
-          (elapsed - prev.time) / Math.max(0.001, next.time - prev.time)
-        );
-        return lerp(prev.rankById[id] || 0, next.rankById[id] || 0, t);
+  /** 単調増加パス上の位置 */
+  function pathX(points, elapsed) {
+    if (!points || !points.length) return 0;
+    if (elapsed <= points[0].t) return points[0].x;
+    for (let i = 1; i < points.length; i += 1) {
+      const a = points[i - 1];
+      const b = points[i];
+      if (elapsed <= b.t) {
+        const u = (elapsed - a.t) / Math.max(0.001, b.t - a.t);
+        return lerp(a.x, b.x, u);
       }
     }
-    const last = frames[frames.length - 1];
-    return last.rankById[id] || 0;
-  }
-
-  function fieldProgress(elapsed, stretchStart) {
-    const u = clamp(elapsed / stretchStart, 0, 1);
-    // 直線手前まで。ゴールはストレッチで各馬が到達
-    return TRACK_LENGTH * 0.86 * (0.7 * u + 0.3 * u * u);
-  }
-
-  function dramaNoseX(id, elapsed, frames, stretchStart) {
-    const field = fieldProgress(elapsed, stretchStart);
-    const rank = dramaRank(id, elapsed, frames);
-    return field - rank * PACK_GAP;
-  }
-
-  function fitPackAroundLead(positions, maxSpan) {
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let leadId = null;
-    for (const [id, x] of positions) {
-      if (x < minX) minX = x;
-      if (x > maxX) {
-        maxX = x;
-        leadId = id;
-      }
-    }
-    const span = maxX - minX;
-    if (span <= maxSpan || span < 1e-6 || leadId == null) {
-      return { positions, minX, maxX, leadId };
-    }
-    const scale = maxSpan / span;
-    const fitted = new Map();
-    for (const [id, x] of positions) {
-      fitted.set(id, maxX - (maxX - x) * scale);
-    }
-    return {
-      positions: fitted,
-      minX: maxX - maxSpan,
-      maxX,
-      leadId,
-    };
+    return points[points.length - 1].x;
   }
 
   function remainingMarkerMeters(raceDistance) {
@@ -239,21 +184,19 @@ window.Keiba = window.Keiba || {};
     const horseIds = finishOrder.slice().sort((a, b) => a - b);
     const firstFinishAt = finishTimes[finishOrder[0]];
     const stretchStart = firstFinishAt * 0.9;
-    const drama = buildDramaFrames(horseIds, stretchStart);
-    const stretchStartX = new Map();
-    horseIds.forEach((id) => {
-      stretchStartX.set(
-        id,
-        dramaNoseX(id, stretchStart, drama.frames, stretchStart)
-      );
-    });
+    const drama = buildForwardPaths(horseIds, stretchStart);
 
+    const stretchStartX = new Map();
     const exitSpeed = new Map();
     horseIds.forEach((id) => {
-      const tFin = finishTimes[id];
-      const startX = stretchStartX.get(id);
-      const span = Math.max(0.2, tFin - stretchStart);
-      exitSpeed.set(id, (TRACK_LENGTH - startX) / span);
+      const x0 = pathX(drama.paths.get(id), stretchStart);
+      stretchStartX.set(id, x0);
+      const span = Math.max(0.25, finishTimes[id] - stretchStart);
+      // ゴールまでも最低速度以上で前進
+      exitSpeed.set(
+        id,
+        Math.max(MIN_SPEED, (TRACK_LENGTH - x0) / span)
+      );
     });
 
     const runners = new Map();
@@ -324,10 +267,7 @@ window.Keiba = window.Keiba || {};
     let finished = false;
     let firstHorseFinished = false;
     const lastFinishAt = Math.max(...Object.values(finishTimes));
-
-    function viewWidth() {
-      return trackEl.clientWidth || 1;
-    }
+    const lastNose = new Map();
 
     function horseWidth(el) {
       return el.offsetWidth || 54;
@@ -337,15 +277,13 @@ window.Keiba = window.Keiba || {};
       const tFin = finishTimes[id];
       if (elapsed <= 0) return 0;
       if (elapsed < stretchStart) {
-        return dramaNoseX(id, elapsed, drama.frames, stretchStart);
+        return pathX(drama.paths.get(id), elapsed);
       }
       if (elapsed < tFin) {
         const u = (elapsed - stretchStart) / Math.max(0.001, tFin - stretchStart);
-        // 終端で急停止しないよう、ほぼ線形でゴールへ
         return lerp(stretchStartX.get(id), TRACK_LENGTH, clamp(u, 0, 1));
       }
-      const speed = exitSpeed.get(id) || 80;
-      return TRACK_LENGTH + speed * (elapsed - tFin);
+      return TRACK_LENGTH + exitSpeed.get(id) * (elapsed - tFin);
     }
 
     function frame(now) {
@@ -358,40 +296,28 @@ window.Keiba = window.Keiba || {};
       const elapsed = (now - start) / 1000;
       if (timerEl) timerEl.textContent = `${elapsed.toFixed(1)}s`;
 
-      const vw = viewWidth();
-      const raw = new Map();
-      const racing = new Map();
-      const done = new Map();
+      const vw = trackEl.clientWidth || 1;
+      let leadNose = 0;
+      const positions = new Map();
 
       for (const id of runners.keys()) {
-        const x = noseX(id, elapsed);
-        raw.set(id, x);
-        if (x >= TRACK_LENGTH) {
-          done.set(id, x);
-          if (!flagged.has(id)) {
-            flagged.add(id);
-            plantPlaceFlag(lanesById.get(id), placeById.get(id));
-          }
-        } else {
-          racing.set(id, x);
+        let x = noseX(id, elapsed);
+        // 表示上も後退しない
+        const prev = lastNose.get(id) ?? 0;
+        if (x < prev) x = prev;
+        lastNose.set(id, x);
+        positions.set(id, x);
+
+        if (x > leadNose) leadNose = x;
+
+        if (x >= TRACK_LENGTH && !flagged.has(id)) {
+          flagged.add(id);
+          plantPlaceFlag(lanesById.get(id), placeById.get(id));
         }
       }
 
-      if (!firstHorseFinished && done.size > 0) {
+      if (!firstHorseFinished && leadNose >= TRACK_LENGTH) {
         firstHorseFinished = true;
-      }
-
-      let positions;
-      let leadNose = 0;
-
-      if (racing.size > 0) {
-        const maxSpan = Math.max(150, vw * 0.78 - 56);
-        const fitted = fitPackAroundLead(racing, maxSpan);
-        positions = new Map([...fitted.positions, ...done]);
-        leadNose = fitted.maxX;
-      } else {
-        positions = done;
-        leadNose = TRACK_LENGTH;
       }
 
       let targetCam;
@@ -412,9 +338,8 @@ window.Keiba = window.Keiba || {};
       }
 
       for (const [id, el] of runners) {
-        const nose = positions.get(id) ?? raw.get(id);
-        const left = nose - horseWidth(el);
-        el.style.transform = `translate3d(${left}px, -50%, 0)`;
+        const nose = positions.get(id);
+        el.style.transform = `translate3d(${nose - horseWidth(el)}px, -50%, 0)`;
         el.style.zIndex = String(10 + Math.floor(nose / 8));
       }
 
