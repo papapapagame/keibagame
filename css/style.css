@@ -1228,8 +1228,8 @@ ol {
   position: absolute;
   left: 0;
   top: 50%;
-  width: 3.4rem;
-  height: 1.75rem;
+  width: 3.8rem;
+  height: 2.35rem;
   z-index: 3;
   will-change: transform;
   transform: translate3d(0, -50%, 0);

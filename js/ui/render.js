@@ -108,7 +108,7 @@ window.Keiba = window.Keiba || {};
     const tr1 = document.createElement('tr');
     tr1.innerHTML = `
       <th class="col-num" rowspan="2">馬番</th>
-      <th class="col-name" rowspan="2">馬名</th>
+      <th class="col-name" rowspan="2">キャラ</th>
       <th class="col-form" rowspan="2">調子</th>
     `;
 
