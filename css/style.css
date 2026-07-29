@@ -1084,6 +1084,70 @@ ol {
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.25);
 }
 
+.place-flag {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 6;
+  pointer-events: none;
+  animation: place-flag-in 0.35s ease-out;
+}
+
+.place-flag-banner {
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.2rem;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--num);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  background: #333;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  line-height: 1;
+}
+
+.place-flag-pole {
+  width: 2px;
+  height: 0.85rem;
+  background: #cfd8dc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.place-flag.place-1 .place-flag-banner {
+  background: linear-gradient(180deg, #f6d860, #d4a017);
+  color: #1a1200;
+  border-color: #fff8dc;
+}
+
+.place-flag.place-2 .place-flag-banner {
+  background: linear-gradient(180deg, #eceff1, #90a4ae);
+  color: #102027;
+}
+
+.place-flag.place-3 .place-flag-banner {
+  background: linear-gradient(180deg, #d7a078, #a05a2c);
+  color: #fff8f0;
+}
+
+@keyframes place-flag-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -30%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* ===== Result ===== */
 #screen-result {
   align-items: stretch;
