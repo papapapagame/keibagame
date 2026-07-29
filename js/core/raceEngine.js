@@ -14,12 +14,10 @@ window.Keiba = window.Keiba || {};
     const distance = pick(K.DISTANCES);
     const condition = pick(K.CONDITIONS);
     const forms = {};
-    const styles = {};
     for (const h of K.HORSES) {
       forms[h.id] = randInt(1, 5);
-      styles[h.id] = pick(K.RUNNING_STYLES);
     }
-    return { surface, distance, condition, forms, styles };
+    return { surface, distance, condition, forms };
   };
 
   function conditionWeight(condition) {
@@ -122,7 +120,7 @@ window.Keiba = window.Keiba || {};
       .sort((a, b) => winRates[b.id] - winRates[a.id] || a.id - b.id)
       .map((h) => h.id);
 
-    // 着順はレーススタート時に抽選（脚質は演出のみで勝率・着順に使わない）
+    // 着順はレーススタート時に抽選
     return { setup, abilities, winRates, popularity, finishOrder: null };
   };
 
@@ -132,20 +130,5 @@ window.Keiba = window.Keiba || {};
 
   K.formatFormStars = function formatFormStars(form) {
     return '★'.repeat(form);
-  };
-
-  K.formatStyleShort = function formatStyleShort(style) {
-    switch (style) {
-      case '逃げ':
-        return '逃';
-      case '先行':
-        return '先';
-      case '差し':
-        return '差';
-      case '追込':
-        return '追';
-      default:
-        return '─';
-    }
   };
 })(window.Keiba);

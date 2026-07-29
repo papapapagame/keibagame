@@ -10,7 +10,6 @@ Keiba.FORM_UNIT = 100;
 Keiba.SURFACES = ['芝', 'ダート'];
 Keiba.DISTANCES = [1000, 1200, 1600, 2000, 2400, 3200];
 Keiba.CONDITIONS = ['良', '稍重', '重', '不良'];
-Keiba.RUNNING_STYLES = ['逃げ', '先行', '差し', '追込'];
 
 Keiba.FORM_MULTIPLIER = {
   1: 0.86,

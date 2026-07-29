@@ -201,7 +201,7 @@
     state.money -= total;
     K.saveState(state);
 
-    // レーススタート時点で着順を抽選（脚質は演出のみ）
+    // レーススタート時点で着順を抽選
     race.finishOrder = K.drawRaceFinishOrder(race.winRates);
 
     K.showScreen('screen-race');
@@ -215,7 +215,6 @@
       lanesEl: K.$('track-lanes'),
       timerEl: K.$('race-timer'),
       finishOrder: race.finishOrder,
-      stylesById: race.setup.styles,
       raceDistance: race.setup.distance,
       onComplete: showRaceResult,
     });

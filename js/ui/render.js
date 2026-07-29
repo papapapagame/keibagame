@@ -109,7 +109,6 @@ window.Keiba = window.Keiba || {};
     tr1.innerHTML = `
       <th class="col-num" rowspan="2">馬番</th>
       <th class="col-name" rowspan="2">馬名</th>
-      <th class="col-style" rowspan="2">脚質</th>
       <th class="col-form" rowspan="2">調子</th>
     `;
 
@@ -171,13 +170,6 @@ window.Keiba = window.Keiba || {};
       nameTd.appendChild(nameBtn);
       tr.appendChild(nameTd);
 
-      const style = setup.styles[horse.id];
-      const styleTd = document.createElement('td');
-      styleTd.className = 'col-style';
-      styleTd.innerHTML = `<span class="style-badge style-${style}">${K.formatStyleShort(style)}</span>`;
-      styleTd.title = style || '';
-      tr.appendChild(styleTd);
-
       const formTd = document.createElement('td');
       formTd.className = 'col-form';
       formTd.innerHTML = `<span class="form-stars">${K.formatFormStars(form)}</span>`;
@@ -222,7 +214,7 @@ window.Keiba = window.Keiba || {};
       foot.innerHTML = '';
       const footTr = document.createElement('tr');
       const spacer = document.createElement('td');
-      spacer.colSpan = 5;
+      spacer.colSpan = 4;
       spacer.className = 'col-actions-spacer';
       spacer.textContent = '列操作';
       footTr.appendChild(spacer);

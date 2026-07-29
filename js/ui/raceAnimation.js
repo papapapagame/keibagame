@@ -4,13 +4,14 @@ window.Keiba = window.Keiba || {};
   /** 仮想コース長（鼻先座標。ゴール線 = TRACK_LENGTH） */
   const TRACK_LENGTH = 2400;
   const RUNOUT_LENGTH = 720;
-  /** 1着を画面のどの位置に置くか（やや左寄り＝前方の馬も見える） */
-  const WINNER_CAMERA_ANCHOR = 0.42;
+  /** 現在先頭を画面のどこに置くか */
+  const LEAD_CAMERA_ANCHOR = 0.4;
   const CAMERA_FOLLOW = 3.2;
-  /** ゴール固定時、ゴール線を画面のどこに置くか */
   const FINISH_CAMERA_ANCHOR = 0.62;
   /** 着差（秒） */
   const PLACE_GAP_SEC = 0.55;
+  /** 道中の馬間（ワールド座標） */
+  const PACK_GAP = 48;
 
   function clamp(v, a, b) {
     return Math.max(a, Math.min(b, v));
@@ -20,32 +21,19 @@ window.Keiba = window.Keiba || {};
     return a + (b - a) * t;
   }
 
-  /** 単調増加の折れ線補間 */
-  function polyLerp(u, keys, values) {
-    if (u <= keys[0]) return values[0];
-    for (let i = 1; i < keys.length; i += 1) {
-      if (u <= keys[i]) {
-        const t = (u - keys[i - 1]) / (keys[i] - keys[i - 1]);
-        return lerp(values[i - 1], values[i], t);
-      }
-    }
-    return values[values.length - 1];
+  function easeInOut(t) {
+    t = clamp(t, 0, 1);
+    return t * t * (3 - 2 * t);
   }
 
-  /** 脚質の序盤押し出し（0=後方寄り, 1=前方寄り） */
-  function styleFrontBias(style) {
-    switch (style) {
-      case '逃げ':
-        return 0.95;
-      case '先行':
-        return 0.72;
-      case '差し':
-        return 0.38;
-      case '追込':
-        return 0.18;
-      default:
-        return 0.5;
+  function shuffleInPlace(arr) {
+    for (let i = arr.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
     }
+    return arr;
   }
 
   function assignFinishTimes(finishOrder, duration) {
@@ -58,89 +46,127 @@ window.Keiba = window.Keiba || {};
   }
 
   /**
-   * 道中は脚質で前後が入れ替わり、終盤で着順どおりに収束する進捗カーブ。
-   * u=0..1（各馬のゴール時刻基準）→ 0..1（鼻先進捗）
+   * 道中用のランダム順位キーフレーム。
+   * 着順とは無関係。パターン（独走気味／大荒れ／中団入れ替わり）も毎回ランダム。
    */
-  function progressFraction(u, place, style) {
-    u = clamp(u, 0, 1);
-    const front = styleFrontBias(style);
-    const place01 = (place - 1) / 7; // 0=1着 … 1=8着
-    const lateStrength = 1 - place01; // 1着ほど終盤強い
+  function buildDramaFrames(horseIds, stretchStart) {
+    const ids = horseIds.slice();
+    const patternRoll = Math.random();
+    const pattern =
+      patternRoll < 0.28 ? 'holdLead' : patternRoll < 0.55 ? 'lateSurge' : 'chaos';
 
-    // 序盤〜中盤: 逃げ先行が前、差し追込は控える
-    const p18 = 0.10 + front * 0.14;
-    const p36 = 0.22 + front * 0.20;
-    // 中盤で一度散らす（逃げ残り vs 差し浮上の交差を作る）
-    const p52 = 0.38 + front * 0.10 + lateStrength * 0.08;
-    // 直線: 着順へ急速に寄せる（見た目の逆転が起きやすい帯）
-    const p72 = 0.55 + lateStrength * 0.22 + front * 0.02;
-    const p88 = 0.78 + lateStrength * 0.16;
-
-    const raw = polyLerp(
-      u,
-      [0, 0.18, 0.36, 0.52, 0.72, 0.88, 1],
-      [0, p18, p36, p52, p72, p88, 1]
-    );
-
-    // わずかに加速感を残しつつ終端速度を確保
-    return 0.9 * raw + 0.1 * u;
-  }
-
-  function estimateExitSpeed(id, finishAt, place, stylesById) {
-    const style = stylesById[id] || '先行';
-    const eps = 1 / 60;
-    const u0 = Math.max(0, 1 - eps / finishAt);
-    const p0 = progressFraction(u0, place, style);
-    return (TRACK_LENGTH * (1 - p0)) / Math.max(eps, finishAt * (1 - u0));
-  }
-
-  function noseX(id, elapsed, finishTimes, placeById, stylesById, exitSpeed) {
-    const finishAt = finishTimes[id];
-    const place = placeById.get(id) || 4;
-    const style = stylesById[id] || '先行';
-    if (elapsed <= 0) return 0;
-    if (elapsed < finishAt) {
-      return TRACK_LENGTH * progressFraction(elapsed / finishAt, place, style);
+    let stickyLead = ids[Math.floor(Math.random() * ids.length)];
+    let surgeId = ids[Math.floor(Math.random() * ids.length)];
+    if (surgeId === stickyLead && ids.length > 1) {
+      surgeId = ids[(ids.indexOf(surgeId) + 1) % ids.length];
     }
-    const speed = exitSpeed.get(id) || TRACK_LENGTH / Math.max(1, finishAt);
-    return TRACK_LENGTH + speed * (elapsed - finishAt);
-  }
 
-  /**
-   * 1着をアンカーに隊列幅を抑え、前後の馬が画面に残りやすくする
-   */
-  function fitPackAroundAnchor(positions, anchorId, maxSpan) {
-    const anchorX = positions.get(anchorId);
-    if (anchorX == null) {
-      let minX = Infinity;
-      let maxX = -Infinity;
-      for (const x of positions.values()) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
+    const times = [0];
+    let t = 0.8 + Math.random() * 1.2;
+    while (t < stretchStart - 0.6) {
+      times.push(t);
+      t += 1.2 + Math.random() * 2.4;
+    }
+    times.push(stretchStart);
+
+    const frames = times.map((time, index) => {
+      const order = shuffleInPlace(ids.slice());
+      const phase = times.length <= 1 ? 0 : index / (times.length - 1);
+
+      if (pattern === 'holdLead') {
+        // 序盤〜中盤は同じ馬が前目、終盤キーフレームでは崩す
+        if (phase < 0.7) {
+          const rest = order.filter((id) => id !== stickyLead);
+          order.length = 0;
+          order.push(stickyLead, ...rest);
+          // 2番手付近も軽く入れ替え
+          if (rest.length > 2 && Math.random() < 0.7) {
+            const a = 1 + Math.floor(Math.random() * Math.min(3, rest.length));
+            const b = 1 + Math.floor(Math.random() * Math.min(3, rest.length));
+            const tmp = order[a];
+            order[a] = order[b];
+            order[b] = tmp;
+          }
+        }
+      } else if (pattern === 'lateSurge') {
+        if (phase < 0.45) {
+          // 終盤ごぼう抜き役を後ろ〜中団に置く
+          const rest = order.filter((id) => id !== surgeId);
+          const back = Math.min(rest.length, 4 + Math.floor(Math.random() * 3));
+          order.length = 0;
+          order.push(...rest.slice(0, back), surgeId, ...rest.slice(back));
+        } else if (phase < 0.85) {
+          const rest = order.filter((id) => id !== surgeId);
+          order.length = 0;
+          order.push(surgeId, ...shuffleInPlace(rest));
+        }
       }
-      return { positions, minX, maxX };
-    }
+      // chaos: 完全シャッフルのまま
 
+      const rankById = {};
+      order.forEach((id, rank) => {
+        rankById[id] = rank;
+      });
+      return { time, rankById };
+    });
+
+    return { frames, pattern };
+  }
+
+  function dramaRank(id, elapsed, frames) {
+    if (!frames.length) return 0;
+    if (elapsed <= frames[0].time) return frames[0].rankById[id] || 0;
+    for (let i = 1; i < frames.length; i += 1) {
+      const prev = frames[i - 1];
+      const next = frames[i];
+      if (elapsed <= next.time) {
+        const t = easeInOut(
+          (elapsed - prev.time) / Math.max(0.001, next.time - prev.time)
+        );
+        return lerp(prev.rankById[id] || 0, next.rankById[id] || 0, t);
+      }
+    }
+    const last = frames[frames.length - 1];
+    return last.rankById[id] || 0;
+  }
+
+  function fieldProgress(elapsed, stretchStart) {
+    const u = clamp(elapsed / stretchStart, 0, 1);
+    // 直線手前まで。ゴールはストレッチで各馬が到達
+    return TRACK_LENGTH * 0.86 * (0.7 * u + 0.3 * u * u);
+  }
+
+  function dramaNoseX(id, elapsed, frames, stretchStart) {
+    const field = fieldProgress(elapsed, stretchStart);
+    const rank = dramaRank(id, elapsed, frames);
+    return field - rank * PACK_GAP;
+  }
+
+  function fitPackAroundLead(positions, maxSpan) {
     let minX = Infinity;
     let maxX = -Infinity;
-    for (const x of positions.values()) {
+    let leadId = null;
+    for (const [id, x] of positions) {
       if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
+      if (x > maxX) {
+        maxX = x;
+        leadId = id;
+      }
     }
     const span = maxX - minX;
-    if (span <= maxSpan || span < 1e-6) {
-      return { positions, minX, maxX };
+    if (span <= maxSpan || span < 1e-6 || leadId == null) {
+      return { positions, minX, maxX, leadId };
     }
-
-    const fitted = new Map();
     const scale = maxSpan / span;
+    const fitted = new Map();
     for (const [id, x] of positions) {
-      fitted.set(id, anchorX + (x - anchorX) * scale);
+      fitted.set(id, maxX - (maxX - x) * scale);
     }
     return {
       positions: fitted,
-      minX: anchorX + (minX - anchorX) * scale,
-      maxX: anchorX + (maxX - anchorX) * scale,
+      minX: maxX - maxSpan,
+      maxX,
+      leadId,
     };
   }
 
@@ -201,7 +227,6 @@ window.Keiba = window.Keiba || {};
     lanesEl,
     timerEl,
     finishOrder,
-    stylesById,
     raceDistance = 1600,
     onComplete,
   }) {
@@ -211,14 +236,24 @@ window.Keiba = window.Keiba || {};
 
     const finishTimes = assignFinishTimes(finishOrder, duration);
     const placeById = new Map(finishOrder.map((id, i) => [id, i + 1]));
-    const winnerId = finishOrder[0];
+    const horseIds = finishOrder.slice().sort((a, b) => a - b);
+    const firstFinishAt = finishTimes[finishOrder[0]];
+    const stretchStart = firstFinishAt * 0.9;
+    const drama = buildDramaFrames(horseIds, stretchStart);
+    const stretchStartX = new Map();
+    horseIds.forEach((id) => {
+      stretchStartX.set(
+        id,
+        dramaNoseX(id, stretchStart, drama.frames, stretchStart)
+      );
+    });
 
     const exitSpeed = new Map();
-    finishOrder.forEach((id) => {
-      exitSpeed.set(
-        id,
-        estimateExitSpeed(id, finishTimes[id], placeById.get(id), stylesById)
-      );
+    horseIds.forEach((id) => {
+      const tFin = finishTimes[id];
+      const startX = stretchStartX.get(id);
+      const span = Math.max(0.2, tFin - stretchStart);
+      exitSpeed.set(id, (TRACK_LENGTH - startX) / span);
     });
 
     const runners = new Map();
@@ -287,7 +322,7 @@ window.Keiba = window.Keiba || {};
     let lastNow = 0;
     let cameraX = 0;
     let finished = false;
-    let winnerFinished = false;
+    let firstHorseFinished = false;
     const lastFinishAt = Math.max(...Object.values(finishTimes));
 
     function viewWidth() {
@@ -296,6 +331,21 @@ window.Keiba = window.Keiba || {};
 
     function horseWidth(el) {
       return el.offsetWidth || 54;
+    }
+
+    function noseX(id, elapsed) {
+      const tFin = finishTimes[id];
+      if (elapsed <= 0) return 0;
+      if (elapsed < stretchStart) {
+        return dramaNoseX(id, elapsed, drama.frames, stretchStart);
+      }
+      if (elapsed < tFin) {
+        const u = (elapsed - stretchStart) / Math.max(0.001, tFin - stretchStart);
+        // 終端で急停止しないよう、ほぼ線形でゴールへ
+        return lerp(stretchStartX.get(id), TRACK_LENGTH, clamp(u, 0, 1));
+      }
+      const speed = exitSpeed.get(id) || 80;
+      return TRACK_LENGTH + speed * (elapsed - tFin);
     }
 
     function frame(now) {
@@ -310,58 +360,43 @@ window.Keiba = window.Keiba || {};
 
       const vw = viewWidth();
       const raw = new Map();
+      const racing = new Map();
+      const done = new Map();
 
       for (const id of runners.keys()) {
-        const x = noseX(
-          id,
-          elapsed,
-          finishTimes,
-          placeById,
-          stylesById,
-          exitSpeed
-        );
+        const x = noseX(id, elapsed);
         raw.set(id, x);
-
-        if (x >= TRACK_LENGTH && !flagged.has(id)) {
-          flagged.add(id);
-          plantPlaceFlag(lanesById.get(id), placeById.get(id));
+        if (x >= TRACK_LENGTH) {
+          done.set(id, x);
+          if (!flagged.has(id)) {
+            flagged.add(id);
+            plantPlaceFlag(lanesById.get(id), placeById.get(id));
+          }
+        } else {
+          racing.set(id, x);
         }
       }
 
-      if (!winnerFinished && raw.get(winnerId) >= TRACK_LENGTH) {
-        winnerFinished = true;
-      }
-
-      // 未ゴール馬＋1着を中心に軽く圧縮（道中の前後入れ替えは残す）
-      const racing = new Map();
-      const done = new Map();
-      for (const [id, x] of raw) {
-        if (x >= TRACK_LENGTH) done.set(id, x);
-        else racing.set(id, x);
+      if (!firstHorseFinished && done.size > 0) {
+        firstHorseFinished = true;
       }
 
       let positions;
+      let leadNose = 0;
+
       if (racing.size > 0) {
         const maxSpan = Math.max(150, vw * 0.78 - 56);
-        const pack = new Map(racing);
-        // 1着がまだ走っているならアンカーに含める
-        if (!winnerFinished) pack.set(winnerId, raw.get(winnerId));
-        const fitted = fitPackAroundAnchor(
-          pack,
-          winnerFinished ? [...racing.keys()][0] : winnerId,
-          maxSpan
-        );
+        const fitted = fitPackAroundLead(racing, maxSpan);
         positions = new Map([...fitted.positions, ...done]);
-        // 圧縮後も1着の生座標を優先（カメラ追従の基準を安定させる）
-        if (!winnerFinished) positions.set(winnerId, raw.get(winnerId));
+        leadNose = fitted.maxX;
       } else {
         positions = done;
+        leadNose = TRACK_LENGTH;
       }
 
       let targetCam;
-      if (!winnerFinished) {
-        const winnerNose = positions.get(winnerId) ?? raw.get(winnerId);
-        targetCam = Math.max(0, winnerNose - vw * WINNER_CAMERA_ANCHOR);
+      if (!firstHorseFinished) {
+        targetCam = Math.max(0, leadNose - vw * LEAD_CAMERA_ANCHOR);
       } else {
         targetCam = Math.max(0, TRACK_LENGTH - vw * FINISH_CAMERA_ANCHOR);
       }
