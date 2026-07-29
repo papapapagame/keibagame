@@ -814,6 +814,58 @@ ol {
   font-weight: 700;
 }
 
+.race-callout {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex-shrink: 0;
+  min-height: 2.15rem;
+  margin: 0 0 2px;
+  border: 2px solid #1a1a1a;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #111827;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.race-callout-label {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 0 0.55rem;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.race-callout-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #f8fafc;
+}
+
+.race-callout-text.pop {
+  animation: callout-pop 0.35s ease-out;
+}
+
+@keyframes callout-pop {
+  0% {
+    transform: translateX(8px);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 .track {
   position: relative;
   flex: 1;
@@ -833,6 +885,181 @@ ol {
   background: linear-gradient(180deg, #5b87b8 0%, #7eb0d4 55%, rgba(126, 176, 212, 0) 100%);
   pointer-events: none;
   z-index: 0;
+}
+
+.track-crowd {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 22%;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(30, 40, 60, 0.35), transparent 70%);
+}
+
+.crowd-person {
+  position: absolute;
+  bottom: 8%;
+  width: 0.55rem;
+  height: 1.05rem;
+  border-radius: 0.25rem 0.25rem 0.1rem 0.1rem;
+  transform: translateX(-50%);
+  animation: crowd-idle 0.55s ease-in-out infinite alternate;
+}
+
+.crowd-person.tone-1 { background: #ef4444; }
+.crowd-person.tone-2 { background: #3b82f6; }
+.crowd-person.tone-3 { background: #f59e0b; }
+.crowd-person.tone-4 { background: #10b981; }
+.crowd-person.tone-5 { background: #a855f7; }
+
+.crowd-person::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -0.28rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: #fcd9b0;
+  transform: translateX(-50%);
+}
+
+@keyframes crowd-idle {
+  from { transform: translateX(-50%) translateY(0); }
+  to { transform: translateX(-50%) translateY(-2px); }
+}
+
+.track-crowd.mood-cheer .crowd-person {
+  animation: crowd-cheer 0.28s ease-in-out infinite alternate;
+}
+
+.track-crowd.mood-laugh .crowd-person {
+  animation: crowd-cheer 0.22s ease-in-out infinite alternate;
+}
+
+.track-crowd.mood-oh .crowd-person,
+.track-crowd.mood-scream .crowd-person {
+  animation: crowd-shock 0.35s ease-in-out infinite alternate;
+}
+
+@keyframes crowd-cheer {
+  from { transform: translateX(-50%) translateY(0) scale(1); }
+  to { transform: translateX(-50%) translateY(-6px) scale(1.05); }
+}
+
+@keyframes crowd-shock {
+  from { transform: translateX(-50%) translateY(0) rotate(-4deg); }
+  to { transform: translateX(-50%) translateY(-3px) rotate(4deg); }
+}
+
+.race-fx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.race-fx {
+  position: absolute;
+  font-size: 1.25rem;
+  transform: translate(-50%, -50%);
+  animation: fx-pop 1.4s ease-out forwards;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4));
+}
+
+.race-fx.fx-bird {
+  animation: fx-bird 1.35s linear forwards;
+  font-size: 1.4rem;
+}
+
+.race-fx.fx-thunder {
+  font-size: 1.8rem;
+  animation: fx-pop 0.9s ease-out forwards;
+}
+
+@keyframes fx-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -70%) scale(1);
+  }
+}
+
+@keyframes fx-bird {
+  0% {
+    opacity: 0;
+    transform: translate(-120%, -50%) scale(0.8);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(80%, -80%) scale(1.1);
+  }
+}
+
+.race-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+  background: #fff;
+}
+
+.race-flash.on {
+  animation: race-flash-blink 0.28s ease-out;
+}
+
+.race-flash.on.thunder {
+  background: #e0f2fe;
+}
+
+@keyframes race-flash-blink {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+.horse-runner.haz-bait .horse-bob {
+  animation: haz-nibble 0.35s ease-in-out infinite;
+}
+
+.horse-runner.haz-boost .horse-bob {
+  animation: haz-boost 0.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px rgba(255, 220, 80, 0.8));
+}
+
+.horse-runner.haz-wobble .horse-bob {
+  animation: haz-wobble 0.28s ease-in-out infinite;
+}
+
+@keyframes haz-nibble {
+  0%,
+  100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(2px) rotate(-6deg); }
+}
+
+@keyframes haz-boost {
+  0%,
+  100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.06); }
+}
+
+@keyframes haz-wobble {
+  0%,
+  100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-2px) rotate(8deg); }
 }
 
 .lane-rail {

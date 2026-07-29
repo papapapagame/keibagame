@@ -81,17 +81,24 @@
       <span id="race-title" class="race-title">レース中</span>
       <span id="race-timer" class="race-timer">0.0s</span>
     </header>
+    <div class="race-callout" id="race-callout">
+      <span class="race-callout-label">実況</span>
+      <span class="race-callout-text" id="race-callout-text">スタートです！</span>
+    </div>
     <div id="track" class="track">
       <div class="track-sky" aria-hidden="true"></div>
+      <div class="track-crowd" id="track-crowd" aria-hidden="true"></div>
       <div class="lane-rail" id="lane-rail" aria-hidden="true"></div>
       <div class="track-viewport">
         <div class="track-world" id="track-world">
           <div class="track-bg" id="track-bg" aria-hidden="true"></div>
           <div class="distance-markers" id="distance-markers" aria-hidden="true"></div>
+          <div class="race-fx-layer" id="race-fx-layer" aria-hidden="true"></div>
           <div class="track-lanes" id="track-lanes"></div>
           <div class="finish-line" id="finish-line" aria-hidden="true"></div>
         </div>
       </div>
+      <div class="race-flash" id="race-flash" aria-hidden="true"></div>
     </div>
   </section>
 
@@ -167,6 +174,7 @@
   <script src="js/core/raceEngine.js"></script>
   <script src="js/core/oddsEngine.js"></script>
   <script src="js/core/formation.js"></script>
+  <script src="js/ui/raceHappenings.js"></script>
   <script src="js/ui/raceAnimation.js"></script>
   <script src="js/ui/render.js"></script>
   <script src="js/main.js"></script>

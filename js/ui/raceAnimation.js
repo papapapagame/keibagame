@@ -1,15 +1,16 @@
 window.Keiba = window.Keiba || {};
 
 (function (K) {
-  /** 仮想コース長（鼻先座標。ゴール線 = TRACK_LENGTH） */
   const TRACK_LENGTH = 2400;
   const RUNOUT_LENGTH = 720;
   const LEAD_CAMERA_ANCHOR = 0.4;
-  const CAMERA_FOLLOW = 3.2;
+  const EVENT_CAMERA_ANCHOR = 0.48;
+  const CAMERA_FOLLOW = 3.4;
   const FINISH_CAMERA_ANCHOR = 0.62;
   const PLACE_GAP_SEC = 0.55;
-  /** 道中の最低速度（px/秒）。停止・後退を防ぐ */
-  const MIN_SPEED = 28;
+  const MIN_SPEED = 22;
+  const CRAWL_SPEED = 6;
+  const SAMPLE_DT = 0.08;
 
   function clamp(v, a, b) {
     return Math.max(a, Math.min(b, v));
@@ -29,78 +30,41 @@ window.Keiba = window.Keiba || {};
   }
 
   /**
-   * 各馬の道中経路（常に前進・速度の緩急のみ）。
-   * 着順とは無関係。パターンは毎回ランダム。
+   * ハプニング込みの前進パス（単調増加）。着順とは独立。
    */
-  function buildForwardPaths(horseIds, stretchStart) {
-    const ids = horseIds.slice();
-    const patternRoll = Math.random();
-    const pattern =
-      patternRoll < 0.3 ? 'holdLead' : patternRoll < 0.58 ? 'lateSurge' : 'chaos';
-
-    const focusId = ids[Math.floor(Math.random() * ids.length)];
-    const baseSpeed = (TRACK_LENGTH * 0.82) / Math.max(1, stretchStart);
+  function buildHappeningPaths(horseIds, stretchStart, events) {
+    const baseSpeed = (TRACK_LENGTH * 0.8) / Math.max(1, stretchStart);
     const paths = new Map();
 
-    ids.forEach((id) => {
-      const times = [0];
-      let t = 0.7 + Math.random() * 0.9;
-      while (t < stretchStart - 0.35) {
-        times.push(t);
-        t += 0.9 + Math.random() * 1.7;
-      }
-      times.push(stretchStart);
-
+    horseIds.forEach((id) => {
       const points = [{ t: 0, x: 0 }];
       let x = 0;
-
-      for (let i = 1; i < times.length; i += 1) {
-        const t0 = times[i - 1];
-        const t1 = times[i];
-        const dt = Math.max(0.05, t1 - t0);
-        const phase = t1 / stretchStart;
-
-        // 基準より速い／遅いだけで前後が入れ替わる
-        let mul = 0.55 + Math.random() * 0.95;
-
-        if (pattern === 'holdLead' && id === focusId) {
-          mul *= phase < 0.75 ? 1.22 : 0.92;
-        } else if (pattern === 'holdLead' && phase < 0.55) {
-          mul *= 0.78 + Math.random() * 0.28;
-        }
-
-        if (pattern === 'lateSurge' && id === focusId) {
-          mul *= phase < 0.4 ? 0.62 : phase < 0.7 ? 1.05 : 1.4;
-        } else if (pattern === 'lateSurge' && phase > 0.55) {
-          mul *= 0.8 + Math.random() * 0.25;
-        }
-
-        if (pattern === 'chaos') {
-          mul = 0.5 + Math.random() * 1.15;
-        }
-
-        const speed = Math.max(MIN_SPEED, baseSpeed * mul);
+      for (let t = 0; t < stretchStart; t += SAMPLE_DT) {
+        const dt = Math.min(SAMPLE_DT, stretchStart - t);
+        const phase = t / stretchStart;
+        // 通常の緩急
+        let mul = 0.7 + Math.sin(phase * 9 + id * 1.7) * 0.15 + Math.random() * 0.08;
+        mul *= K.happeningSpeedMul(events, id, t + dt * 0.5);
+        const crawl = mul < 0.15;
+        const speed = Math.max(crawl ? CRAWL_SPEED : MIN_SPEED, baseSpeed * mul);
         x += speed * dt;
-        points.push({ t: t1, x });
+        points.push({ t: t + dt, x });
       }
 
-      // 直線手前で隊列が散らばりすぎないよう、到達位置を帯に収める（比率スケールなので単調性は維持）
-      const targetEnd = TRACK_LENGTH * (0.72 + Math.random() * 0.12);
+      const targetEnd = TRACK_LENGTH * (0.7 + Math.random() * 0.12);
       const scale = targetEnd / Math.max(1, x);
       for (let i = 1; i < points.length; i += 1) {
         points[i].x *= scale;
-        // 念のため各区間に最低前進を保証
-        const minX = points[i - 1].x + MIN_SPEED * (points[i].t - points[i - 1].t) * 0.35;
+        const minX =
+          points[i - 1].x + CRAWL_SPEED * (points[i].t - points[i - 1].t);
         if (points[i].x < minX) points[i].x = minX;
       }
-
       paths.set(id, points);
     });
 
-    return { paths, pattern, focusId };
+    return paths;
   }
 
-  /** 単調増加パス上の位置 */
   function pathX(points, elapsed) {
     if (!points || !points.length) return 0;
     if (elapsed <= points[0].t) return points[0].x;
@@ -167,6 +131,62 @@ window.Keiba = window.Keiba || {};
     laneEl.appendChild(flag);
   }
 
+  function buildCrowd(el) {
+    if (!el) return;
+    el.innerHTML = '';
+    for (let i = 0; i < 28; i += 1) {
+      const p = document.createElement('span');
+      p.className = `crowd-person tone-${(i % 5) + 1}`;
+      p.style.left = `${(i / 28) * 100}%`;
+      p.style.animationDelay = `${(i % 7) * 0.11}s`;
+      el.appendChild(p);
+    }
+  }
+
+  function setCallout(textEl, text, flash) {
+    if (!textEl) return;
+    textEl.textContent = text;
+    if (flash) {
+      textEl.classList.remove('pop');
+      void textEl.offsetWidth;
+      textEl.classList.add('pop');
+    }
+  }
+
+  function setCrowdMood(crowdEl, mood) {
+    if (!crowdEl) return;
+    crowdEl.classList.remove('mood-cheer', 'mood-laugh', 'mood-oh', 'mood-scream');
+    if (mood) crowdEl.classList.add(`mood-${mood}`);
+  }
+
+  function spawnFx(fxLayer, type, worldX, laneIndex) {
+    if (!fxLayer) return;
+    const el = document.createElement('div');
+    el.className = `race-fx fx-${type}`;
+    el.style.left = `${worldX}px`;
+    const topPct = 30 + ((laneIndex || 0) / 8) * 62;
+    el.style.top = `${topPct}%`;
+
+    if (type === 'bait') el.textContent = '🍖';
+    else if (type === 'bird') el.textContent = '🐦';
+    else if (type === 'splash') el.textContent = '💦';
+    else if (type === 'wobble') el.textContent = '💫';
+    else if (type === 'flash') el.textContent = '📸';
+    else if (type === 'bug') el.textContent = '🐛';
+    else if (type === 'slip') el.textContent = '🍌';
+    else if (type === 'thunder') el.textContent = '⚡';
+    else if (type === 'wind') el.textContent = '💨';
+    else if (type === 'sign') el.textContent = '🪧';
+    else if (type === 'cat') el.textContent = '🐱';
+    else if (type === 'confetti') el.textContent = '🎊';
+    else if (type === 'balloon') el.textContent = '🎈';
+    else if (type === 'cart') el.textContent = '🌭';
+    else el.textContent = '❗';
+
+    fxLayer.appendChild(el);
+    setTimeout(() => el.remove(), 1600);
+  }
+
   K.createRaceAnimation = function createRaceAnimation({
     trackEl,
     lanesEl,
@@ -184,31 +204,43 @@ window.Keiba = window.Keiba || {};
     const horseIds = finishOrder.slice().sort((a, b) => a - b);
     const firstFinishAt = finishTimes[finishOrder[0]];
     const stretchStart = firstFinishAt * 0.9;
-    const drama = buildForwardPaths(horseIds, stretchStart);
+
+    const events = K.scheduleRaceHappenings(horseIds, stretchStart);
+    const paths = buildHappeningPaths(horseIds, stretchStart, events);
 
     const stretchStartX = new Map();
     const exitSpeed = new Map();
     horseIds.forEach((id) => {
-      const x0 = pathX(drama.paths.get(id), stretchStart);
+      const x0 = pathX(paths.get(id), stretchStart);
       stretchStartX.set(id, x0);
       const span = Math.max(0.25, finishTimes[id] - stretchStart);
-      // ゴールまでも最低速度以上で前進
-      exitSpeed.set(
-        id,
-        Math.max(MIN_SPEED, (TRACK_LENGTH - x0) / span)
-      );
+      exitSpeed.set(id, Math.max(MIN_SPEED, (TRACK_LENGTH - x0) / span));
     });
 
     const runners = new Map();
     const lanesById = new Map();
     const flagged = new Set();
+    const firedEvents = new Set();
+
     const worldEl = K.$('track-world');
     const bgEl = K.$('track-bg');
     const finishEl = K.$('finish-line');
     const railEl = K.$('lane-rail');
     const markersEl = K.$('distance-markers');
+    const fxLayer = K.$('race-fx-layer');
+    const crowdEl = K.$('track-crowd');
+    const calloutEl = K.$('race-callout-text');
+    const flashEl = K.$('race-flash');
 
     placeDistanceMarkers(markersEl, raceDistance);
+    buildCrowd(crowdEl);
+    if (fxLayer) fxLayer.innerHTML = '';
+    setCallout(
+      calloutEl,
+      K.START_CALLOUTS[Math.floor(Math.random() * K.START_CALLOUTS.length)],
+      true
+    );
+    setCrowdMood(crowdEl, 'cheer');
 
     if (railEl) {
       railEl.innerHTML = '';
@@ -266,8 +298,12 @@ window.Keiba = window.Keiba || {};
     let cameraX = 0;
     let finished = false;
     let firstHorseFinished = false;
-    const lastFinishAt = Math.max(...Object.values(finishTimes));
+    let stretchCalled = false;
+    let finishCalled = false;
+    let eventCamUntil = 0;
+    let eventCamHorse = 0;
     const lastNose = new Map();
+    const lastFinishAt = Math.max(...Object.values(finishTimes));
 
     function horseWidth(el) {
       return el.offsetWidth || 54;
@@ -276,14 +312,47 @@ window.Keiba = window.Keiba || {};
     function noseX(id, elapsed) {
       const tFin = finishTimes[id];
       if (elapsed <= 0) return 0;
-      if (elapsed < stretchStart) {
-        return pathX(drama.paths.get(id), elapsed);
-      }
+      if (elapsed < stretchStart) return pathX(paths.get(id), elapsed);
       if (elapsed < tFin) {
         const u = (elapsed - stretchStart) / Math.max(0.001, tFin - stretchStart);
         return lerp(stretchStartX.get(id), TRACK_LENGTH, clamp(u, 0, 1));
       }
       return TRACK_LENGTH + exitSpeed.get(id) * (elapsed - tFin);
+    }
+
+    function triggerEvent(ev, positions) {
+      setCallout(calloutEl, ev.line, true);
+      setCrowdMood(crowdEl, ev.crowd);
+      if (ev.fx === 'thunder' || ev.fx === 'flash') {
+        if (flashEl) {
+          flashEl.className = `race-flash on ${ev.fx}`;
+          setTimeout(() => {
+            flashEl.className = 'race-flash';
+          }, 280);
+        }
+      }
+      const focusId = ev.targets[0];
+      const x = positions.get(focusId) || 0;
+      spawnFx(fxLayer, ev.fx, x, focusId - 1);
+      if (ev.camera) {
+        eventCamUntil = ev.start + Math.min(1.1, ev.duration);
+        eventCamHorse = focusId;
+      }
+      ev.targets.forEach((id) => {
+        const el = runners.get(id);
+        if (!el) return;
+        el.classList.remove('haz-bait', 'haz-boost', 'haz-wobble');
+        if (ev.type === 'bait' || ev.type === 'cat' || ev.type === 'snackCart') {
+          el.classList.add('haz-bait');
+        } else if (ev.fx === 'bird' || ev.fx === 'balloon') {
+          el.classList.add('haz-boost');
+        } else if (ev.fx === 'wobble' || ev.fx === 'slip' || ev.fx === 'shoe') {
+          el.classList.add('haz-wobble');
+        }
+        setTimeout(() => {
+          el.classList.remove('haz-bait', 'haz-boost', 'haz-wobble');
+        }, ev.duration * 1000);
+      });
     }
 
     function frame(now) {
@@ -302,12 +371,10 @@ window.Keiba = window.Keiba || {};
 
       for (const id of runners.keys()) {
         let x = noseX(id, elapsed);
-        // 表示上も後退しない
         const prev = lastNose.get(id) ?? 0;
         if (x < prev) x = prev;
         lastNose.set(id, x);
         positions.set(id, x);
-
         if (x > leadNose) leadNose = x;
 
         if (x >= TRACK_LENGTH && !flagged.has(id)) {
@@ -316,12 +383,42 @@ window.Keiba = window.Keiba || {};
         }
       }
 
+      for (const ev of events) {
+        if (firedEvents.has(ev.id)) continue;
+        if (elapsed >= ev.start) {
+          firedEvents.add(ev.id);
+          triggerEvent(ev, positions);
+        }
+      }
+
+      if (!stretchCalled && elapsed >= stretchStart) {
+        stretchCalled = true;
+        setCallout(
+          calloutEl,
+          K.STRETCH_CALLOUTS[Math.floor(Math.random() * K.STRETCH_CALLOUTS.length)],
+          true
+        );
+        setCrowdMood(crowdEl, 'cheer');
+      }
+
       if (!firstHorseFinished && leadNose >= TRACK_LENGTH) {
         firstHorseFinished = true;
+        if (!finishCalled) {
+          finishCalled = true;
+          setCallout(
+            calloutEl,
+            K.FINISH_CALLOUTS[Math.floor(Math.random() * K.FINISH_CALLOUTS.length)],
+            true
+          );
+          setCrowdMood(crowdEl, 'cheer');
+        }
       }
 
       let targetCam;
-      if (!firstHorseFinished) {
+      if (elapsed < eventCamUntil && !firstHorseFinished && eventCamHorse) {
+        const focusX = positions.get(eventCamHorse) || leadNose;
+        targetCam = Math.max(0, focusX - vw * EVENT_CAMERA_ANCHOR);
+      } else if (!firstHorseFinished) {
         targetCam = Math.max(0, leadNose - vw * LEAD_CAMERA_ANCHOR);
       } else {
         targetCam = Math.max(0, TRACK_LENGTH - vw * FINISH_CAMERA_ANCHOR);
