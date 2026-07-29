@@ -122,12 +122,30 @@ window.Keiba = window.Keiba || {};
       .sort((a, b) => winRates[b.id] - winRates[a.id] || a.id - b.id)
       .map((h) => h.id);
 
-    const finishOrder = K.drawFinishOrder(K.HORSES, winRates);
+    // 着順はレーススタート時に抽選（脚質は演出のみで勝率・着順に使わない）
+    return { setup, abilities, winRates, popularity, finishOrder: null };
+  };
 
-    return { setup, abilities, winRates, popularity, finishOrder };
+  K.drawRaceFinishOrder = function drawRaceFinishOrder(winRates) {
+    return K.drawFinishOrder(K.HORSES, winRates);
   };
 
   K.formatFormStars = function formatFormStars(form) {
     return '★'.repeat(form);
+  };
+
+  K.formatStyleShort = function formatStyleShort(style) {
+    switch (style) {
+      case '逃げ':
+        return '逃';
+      case '先行':
+        return '先';
+      case '差し':
+        return '差';
+      case '追込':
+        return '追';
+      default:
+        return '─';
+    }
   };
 })(window.Keiba);

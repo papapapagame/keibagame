@@ -737,8 +737,14 @@ ol {
   padding-right: 0.15rem !important;
 }
 
+.col-style {
+  width: 1.5rem;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 .col-form {
-  width: 2.8rem;
+  width: 2.6rem;
   padding-left: 0 !important;
   padding-right: 0.05rem !important;
 }
@@ -787,6 +793,24 @@ ol {
   font-size: 0.52rem;
   white-space: nowrap;
 }
+
+.style-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 3px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #fff;
+  background: #546e7a;
+}
+
+.style-badge.style-逃げ { background: #c62828; }
+.style-badge.style-先行 { background: #ef6c00; }
+.style-badge.style-差し { background: #1565c0; }
+.style-badge.style-追込 { background: #6a1b9a; }
 
 /* ===== Race（左→右 / 先頭追従カメラ） ===== */
 #screen-race {
@@ -1483,8 +1507,12 @@ ol {
     font-size: 0.75rem;
   }
 
+  .col-style {
+    width: 1.35rem;
+  }
+
   .col-form {
-    width: 2.6rem;
+    width: 2.4rem;
   }
 
   .col-odds {

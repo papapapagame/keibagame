@@ -201,6 +201,9 @@
     state.money -= total;
     K.saveState(state);
 
+    // レーススタート時点で着順を抽選（脚質は演出のみ）
+    race.finishOrder = K.drawRaceFinishOrder(race.winRates);
+
     K.showScreen('screen-race');
     K.$('race-title').textContent =
       `${race.setup.surface} ${race.setup.distance}m（${race.setup.condition}）`;
